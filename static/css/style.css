@@ -88,6 +88,30 @@ main {
     transform: translateY(-1px);
 }
 
+/* ─── Cartões administrativos ─── */
+.admin-fixed-card {
+    height: 300px;
+}
+
+.admin-fixed-card .card-body {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-list-scroll {
+    height: 220px;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.dp-catalog-list {
+    max-height: 220px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
 /* ─── Badges de Status ─── */
 .badge-status {
     font-weight: 500;

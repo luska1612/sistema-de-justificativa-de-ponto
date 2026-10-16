@@ -8,9 +8,9 @@
         <h5 class="fw-600 mb-1">Minhas Justificativas</h5>
         <p class="text-muted small mb-0">Acompanhe o status das suas solicitações</p>
     </div>
-    <button class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#modalNova">
+    <a class="btn btn-primary px-4" href="{{ url_for('solicitacao_nova') }}">
         <i class="bi bi-plus-lg me-1"></i> Nova Justificativa
-    </button>
+    </a>
 </div>
 
 <!-- Contadores rápidos -->
@@ -78,6 +78,7 @@
                             </span>
                         </td>
                         <td class="text-end pe-3">
+                            {% if s.status == 'pendente' %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('editar_solicitacao', sol_id=s.id) }}"><i class="bi bi-pencil"></i></a>{% endif %}
                             <button class="btn btn-sm btn-outline-secondary"
                                     data-bs-toggle="modal"
                                     data-bs-target="#detModal{{ s.id }}">
@@ -108,7 +109,7 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ url_for('nova_solicitacao') }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('salvar_solicitacao') }}" enctype="multipart/form-data">
                 <div class="modal-body">
 
                     <div class="row g-3">
@@ -120,7 +121,7 @@
                             <label class="form-label small fw-500">Tipo de ocorrência <span class="text-danger">*</span></label>
                             <select class="form-select" name="tipo_ocorrencia" required>
                                 <option value="">Selecione...</option>
-                                {% for ocorrencia in tipos_ocorrencia %}<option value="{{ ocorrencia }}">{{ ocorrencia }}</option>{% endfor %}
+                                {% for ocorrencia in tipos_ocorrencia if ocorrencia.nome is defined %}<option value="{{ ocorrencia.nome }}">{{ ocorrencia.nome }}</option>{% endfor %}
                             </select>
                         </div>
                         <div class="col-sm-6">

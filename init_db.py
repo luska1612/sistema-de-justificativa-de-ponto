@@ -4,7 +4,8 @@ Execute uma vez: python init_db.py
 """
 
 from app import app, db
-from models import Usuario, Colaborador, TipoJustificativa, Solicitacao, solicitacao_colaboradores, Area
+from models import (Usuario, Colaborador, TipoJustificativa, TipoOcorrencia,
+                    Solicitacao, solicitacao_colaboradores, Area, Empresa)
 import sqlite3
 import os
 from werkzeug.security import generate_password_hash
@@ -39,6 +40,17 @@ def criar_dados_iniciais():
         if 'area_id' not in colunas_usuario:
             db.session.execute(db.text('ALTER TABLE usuarios ADD COLUMN area_id INTEGER'))
             db.session.commit()
+        if 'empresa_id' not in colunas_usuario:
+            db.session.execute(db.text('ALTER TABLE usuarios ADD COLUMN empresa_id INTEGER'))
+            db.session.commit()
+        for nome_empresa in ('Maity - Agrícola', 'Maity - Bioenergia'):
+            if not Empresa.query.filter_by(nome=nome_empresa).first():
+                db.session.add(Empresa(nome=nome_empresa))
+        ocorrencias_iniciais = ['Saída antecipada', 'Sem registro de entrada', 'Sem registro de saída', 'Sem registro de entrada/sem registro de saída', 'Horas extras', 'Outros']
+        for nome_ocorrencia in ocorrencias_iniciais:
+            if not TipoOcorrencia.query.filter_by(nome=nome_ocorrencia).first():
+                db.session.add(TipoOcorrencia(nome=nome_ocorrencia))
+        db.session.commit()
         if not Usuario.query.filter_by(matricula='TI001').first():
             criar_usuario_ti()
         # Compatibilidade com bancos SQLite criados antes da coluna separada.

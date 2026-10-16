@@ -11,6 +11,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    document.querySelectorAll('input[name="data_ocorrencia"]').forEach(input => {
+        input.addEventListener('input', event => {
+            const digits = event.target.value.replace(/\D/g, '').slice(0, 8);
+            event.target.value = digits.length > 4 ? `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+                : digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+        });
+    });
+
     const dataOcorrencia = document.querySelector('input[name="data_ocorrencia"]');
     if (dataOcorrencia) {
         dataOcorrencia.addEventListener('input', event => {

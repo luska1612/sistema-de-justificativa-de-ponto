@@ -7,6 +7,8 @@
     <h5 class="fw-600 mb-1">Departamento Pessoal</h5>
     <p class="text-muted small mb-0">Fila de solicitações pré-aprovadas pelos gestores</p>
 </div>
+<div class="mb-4"><a class="btn btn-primary" href="{{ url_for('solicitacao_nova') }}"><i class="bi bi-plus-lg me-1"></i>Nova justificativa</a></div>
+<div class="card card-clean mb-4"><div class="card-body"><h6>Minhas solicitações</h6><div class="table-responsive"><table class="table table-sm align-middle mb-0"><tbody>{% for s in minhas_solicitacoes %}<tr><td>#{{ s.id }}</td><td>{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</td><td><span class="badge bg-{{ s.status_cor }}-subtle text-{{ s.status_cor }}">{{ s.status_label }}</span></td><td class="text-end">{% if s.status == 'pendente' %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('editar_solicitacao', sol_id=s.id) }}">Editar</a>{% endif %}</td></tr>{% else %}<tr><td class="text-muted">Nenhuma solicitação própria.</td></tr>{% endfor %}</tbody></table></div></div></div>
 
 <!-- ─── CADASTROS ─── -->
 <div class="row g-3 mb-4">
@@ -18,14 +20,27 @@
                 <div class="col-4"><input class="form-control form-control-sm" name="matricula" placeholder="Matrícula" inputmode="numeric" pattern="[0-9]+" required></div>
                 <div class="col-2"><button class="btn btn-primary btn-sm w-100">Adicionar</button></div>
             </form>
-            <div class="small">{% for c in colaboradores %}<div class="d-flex justify-content-between border-top py-1"><span>{{ c.nome }} — {{ c.matricula }}</span><form method="POST" action="{{ url_for('alternar_colaborador', colaborador_id=c.id) }}"><button class="btn btn-link btn-sm">{% if c.ativo %}Desativar{% else %}Ativar{% endif %}</button></form></div>{% endfor %}</div>
+            {% set colaboradores_inativos = colaboradores | selectattr('ativo', 'equalto', false) | list %}
+            <div class="small">
+                {% for c in colaboradores if c.ativo %}
+                <div class="d-flex justify-content-between border-top py-1"><span>{{ c.nome }} — {{ c.matricula }}</span><form method="POST" action="{{ url_for('alternar_colaborador', colaborador_id=c.id) }}"><button class="btn btn-link btn-sm">Desativar</button></form></div>
+                {% endfor %}
+            </div>
+            {% if colaboradores_inativos %}<button class="btn btn-link btn-sm text-start px-0 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#colaboradores-inativos"><i class="bi bi-archive me-1"></i>Ver desativados ({{ colaboradores_inativos|length }})</button><div class="collapse small" id="colaboradores-inativos">{% for c in colaboradores_inativos %}<div class="d-flex justify-content-between border-top py-1"><span>{{ c.nome }} — {{ c.matricula }}</span><form method="POST" action="{{ url_for('alternar_colaborador', colaborador_id=c.id) }}"><button class="btn btn-link btn-sm">Ativar</button></form></div>{% endfor %}</div>{% endif %}
         </div></div>
     </div>
     <div class="col-md-6">
         <div class="card card-clean"><div class="card-body">
+            <h6>Tipos de ocorrência</h6>
+            <form method="POST" action="{{ url_for('cadastrar_ocorrencia') }}" class="input-group input-group-sm mb-3"><input class="form-control" name="nome" placeholder="Ex.: Horário excedido" required><button class="btn btn-primary">Adicionar</button></form>
+            {% set ocorrencias_inativas = tipos_ocorrencia | selectattr('ativo', 'equalto', false) | list %}
+            <div class="small mb-3">{% for ocorrencia in tipos_ocorrencia if ocorrencia.ativo %}<div class="d-flex justify-content-between border-top py-1"><span>{{ ocorrencia.nome }}</span><form method="POST" action="{{ url_for('alternar_ocorrencia', tipo_id=ocorrencia.id) }}"><button class="btn btn-link btn-sm">Desativar</button></form></div>{% endfor %}</div>
+            {% if ocorrencias_inativas %}<button class="btn btn-link btn-sm text-start px-0 mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#ocorrencias-inativas"><i class="bi bi-archive me-1"></i>Ver desativados ({{ ocorrencias_inativas|length }})</button><div class="collapse small mb-3" id="ocorrencias-inativas">{% for ocorrencia in ocorrencias_inativas %}<div class="d-flex justify-content-between border-top py-1"><span>{{ ocorrencia.nome }}</span><form method="POST" action="{{ url_for('alternar_ocorrencia', tipo_id=ocorrencia.id) }}"><button class="btn btn-link btn-sm">Ativar</button></form></div>{% endfor %}</div>{% endif %}
             <h6>Tipos de justificativa</h6>
             {% if current_user.perfil == 'dp' %}<form method="POST" action="{{ url_for('cadastrar_tipo') }}" class="input-group input-group-sm mb-3"><input class="form-control" name="nome" placeholder="Ex.: Horário excedido" required><button class="btn btn-primary">Adicionar</button></form>{% endif %}
-            <div class="small">{% for tipo in tipos %}<div class="d-flex justify-content-between border-top py-1"><span>{{ tipo.nome }}</span>{% if current_user.perfil == 'dp' %}<form method="POST" action="{{ url_for('alternar_tipo', tipo_id=tipo.id) }}"><button class="btn btn-link btn-sm">{% if tipo.ativo %}Desativar{% else %}Ativar{% endif %}</button></form>{% endif %}</div>{% endfor %}</div>
+            {% set justificativas_inativas = tipos | selectattr('ativo', 'equalto', false) | list %}
+            <div class="small">{% for tipo in tipos if tipo.ativo %}<div class="d-flex justify-content-between border-top py-1"><span>{{ tipo.nome }}</span>{% if current_user.perfil == 'dp' %}<form method="POST" action="{{ url_for('alternar_tipo', tipo_id=tipo.id) }}"><button class="btn btn-link btn-sm">Desativar</button></form>{% endif %}</div>{% endfor %}</div>
+            {% if justificativas_inativas %}<button class="btn btn-link btn-sm text-start px-0 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#justificativas-inativas"><i class="bi bi-archive me-1"></i>Ver desativados ({{ justificativas_inativas|length }})</button><div class="collapse small" id="justificativas-inativas">{% for tipo in justificativas_inativas %}<div class="d-flex justify-content-between border-top py-1"><span>{{ tipo.nome }}</span>{% if current_user.perfil == 'dp' %}<form method="POST" action="{{ url_for('alternar_tipo', tipo_id=tipo.id) }}"><button class="btn btn-link btn-sm">Ativar</button></form>{% endif %}</div>{% endfor %}</div>{% endif %}
         </div></div>
     </div>
 </div>

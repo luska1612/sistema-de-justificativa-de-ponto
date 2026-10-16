@@ -7,6 +7,8 @@
     <h5 class="fw-600 mb-1">Aprovações da Equipe</h5>
     <p class="text-muted small mb-0">Analise e aprove as justificativas dos seus colaboradores</p>
 </div>
+<div class="mb-4"><a class="btn btn-primary" href="{{ url_for('solicitacao_nova') }}"><i class="bi bi-plus-lg me-1"></i>Nova justificativa</a></div>
+<div class="card card-clean mb-4"><div class="card-body"><h6>Minhas solicitações</h6><div class="table-responsive"><table class="table table-sm align-middle mb-0"><tbody>{% for s in minhas_solicitacoes %}<tr><td>#{{ s.id }}</td><td>{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</td><td><span class="badge bg-{{ s.status_cor }}-subtle text-{{ s.status_cor }}">{{ s.status_label }}</span></td><td class="text-end">{% if s.status == 'pendente' %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('editar_solicitacao', sol_id=s.id) }}">Editar</a>{% endif %}</td></tr>{% else %}<tr><td class="text-muted">Nenhuma solicitação própria.</td></tr>{% endfor %}</tbody></table></div></div></div>
 
 <!-- ─── PENDENTES ─── -->
 <div class="d-flex align-items-center gap-2 mb-3">

@@ -14,6 +14,20 @@ solicitacao_colaboradores = db.Table(
 )
 
 
+class Empresa(db.Model):
+    __tablename__ = 'empresas'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(120), unique=True, nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+
+class TipoOcorrencia(db.Model):
+    __tablename__ = 'tipos_ocorrencia'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(80), unique=True, nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+
 class Area(db.Model):
     __tablename__ = 'areas'
     id = db.Column(db.Integer, primary_key=True)
@@ -31,10 +45,12 @@ class Usuario(UserMixin, db.Model):
     perfil = db.Column(db.String(20), nullable=False)
     gestor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
     area_id = db.Column(db.Integer, db.ForeignKey('areas.id'), nullable=True)
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id'), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
     criado_em = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     gestor = db.relationship('Usuario', remote_side=[id], backref='subordinados')
     area = db.relationship('Area', backref='usuarios')
+    empresa = db.relationship('Empresa', backref='usuarios')
     solicitacoes = db.relationship('Solicitacao', backref='colaborador',
                                    foreign_keys='Solicitacao.colaborador_id', lazy='dynamic')
 
