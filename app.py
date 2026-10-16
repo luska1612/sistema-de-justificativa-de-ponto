@@ -21,7 +21,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 from models import (db, Usuario, Solicitacao, Colaborador, TipoJustificativa,
-                    SolicitacaoParticipante)
+                    SolicitacaoParticipante, Area)
 
 # ──────────────────────────────────────────────
 # Configuração
@@ -178,7 +178,9 @@ def ti_requerido(f):
 @app.route('/admin')
 @ti_requerido
 def painel_admin():
-    return render_template('admin.html', usuarios=Usuario.query.order_by(Usuario.nome).all())
+    return render_template('admin.html', usuarios=Usuario.query.order_by(Usuario.nome).all(),
+                           areas=Area.query.order_by(Area.nome).all(),
+                           gestores=Usuario.query.filter_by(perfil='gestor', ativo=True).order_by(Usuario.nome).all())
 
 
 def dados_usuario_validos(form, senha_obrigatoria=True):
@@ -208,6 +210,51 @@ def criar_usuario():
                            perfil=perfil, senha_hash=generate_password_hash(senha)))
     db.session.commit()
     flash('Usuário criado.', 'success')
+    return redirect(url_for('painel_admin'))
+
+
+@app.route('/admin/areas', methods=['POST'])
+@ti_requerido
+def criar_area():
+    nome = ' '.join(request.form.get('nome', '').split())
+    if not nome or len(nome) > 100:
+        flash('Informe um nome de área válido.', 'danger')
+    elif Area.query.filter_by(nome=nome).first():
+        flash('Área já cadastrada.', 'danger')
+    else:
+        db.session.add(Area(nome=nome))
+        db.session.commit()
+        flash('Área cadastrada.', 'success')
+    return redirect(url_for('painel_admin'))
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/vinculo', methods=['POST'])
+@ti_requerido
+def vincular_usuario(usuario_id):
+    usuario = db.session.get(Usuario, usuario_id)
+    area_id = request.form.get('area_id', type=int)
+    gestor_id = request.form.get('gestor_id', type=int)
+    area = db.session.get(Area, area_id) if area_id else None
+    gestor = db.session.get(Usuario, gestor_id) if gestor_id else None
+    if not usuario or (area_id and (not area or not area.ativo)):
+        flash('Área inválida.', 'danger')
+    elif gestor and (gestor.perfil != 'gestor' or not gestor.ativo or gestor.id == usuario.id):
+        flash('Gestor inválido.', 'danger')
+    else:
+        usuario.area_id = area_id or None
+        usuario.gestor_id = gestor_id or None
+        db.session.commit()
+        flash('Vínculo atualizado.', 'success')
+    return redirect(url_for('painel_admin'))
+
+
+@app.route('/admin/areas/<int:area_id>/alternar', methods=['POST'])
+@ti_requerido
+def alternar_area(area_id):
+    area = db.session.get(Area, area_id)
+    if area:
+        area.ativo = not area.ativo
+        db.session.commit()
     return redirect(url_for('painel_admin'))
 
 
@@ -376,6 +423,7 @@ def painel_gestor():
     pendentes = (Solicitacao.query
                  .join(Usuario, Solicitacao.colaborador_id == Usuario.id)
                  .filter(Usuario.gestor_id == current_user.id)
+                 .filter((Usuario.area_id == current_user.area_id) | (current_user.area_id == None))
                  .filter(Solicitacao.status == 'pendente')
                  .order_by(Solicitacao.criado_em.desc())
                  .all())
@@ -384,6 +432,7 @@ def painel_gestor():
     historico = (Solicitacao.query
                  .join(Usuario, Solicitacao.colaborador_id == Usuario.id)
                  .filter(Usuario.gestor_id == current_user.id)
+                 .filter((Usuario.area_id == current_user.area_id) | (current_user.area_id == None))
                  .filter(Solicitacao.status != 'pendente')
                  .order_by(Solicitacao.atualizado_em.desc())
                  .limit(50)
@@ -391,7 +440,8 @@ def painel_gestor():
 
     return render_template('gestor.html', pendentes=pendentes, historico=historico,
                            colaboradores=Colaborador.query.order_by(Colaborador.nome).all(),
-                           tipos=TipoJustificativa.query.order_by(TipoJustificativa.nome).all())
+                           tipos=TipoJustificativa.query.order_by(TipoJustificativa.nome).all(),
+                           tipos_ocorrencia=TIPOS_OCORRENCIA)
 
 
 @app.route('/gestor/aprovar/<int:sol_id>', methods=['POST'])

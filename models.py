@@ -14,6 +14,13 @@ solicitacao_colaboradores = db.Table(
 )
 
 
+class Area(db.Model):
+    __tablename__ = 'areas'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), unique=True, nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+
 class Usuario(UserMixin, db.Model):
     __tablename__ = 'usuarios'
     id = db.Column(db.Integer, primary_key=True)
@@ -23,9 +30,11 @@ class Usuario(UserMixin, db.Model):
     senha_hash = db.Column(db.String(256), nullable=False)
     perfil = db.Column(db.String(20), nullable=False)
     gestor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+    area_id = db.Column(db.Integer, db.ForeignKey('areas.id'), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
     criado_em = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     gestor = db.relationship('Usuario', remote_side=[id], backref='subordinados')
+    area = db.relationship('Area', backref='usuarios')
     solicitacoes = db.relationship('Solicitacao', backref='colaborador',
                                    foreign_keys='Solicitacao.colaborador_id', lazy='dynamic')
 

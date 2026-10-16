@@ -15,7 +15,7 @@
 <div class="card card-clean">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
-            <thead><tr><th class="ps-3">Nome</th><th>Matrícula</th><th>E-mail</th><th>Perfil</th><th>Status</th><th class="text-end pe-3">Ações</th></tr></thead>
+            <thead><tr><th class="ps-3">Nome</th><th>Matrícula</th><th>E-mail</th><th>Perfil</th><th>Área</th><th>Gestor</th><th>Status</th><th class="text-end pe-3">Ações</th></tr></thead>
             <tbody>
             {% for usuario in usuarios %}
             <tr>
@@ -23,6 +23,8 @@
                 <td>{{ usuario.matricula }}</td>
                 <td>{{ usuario.email }}</td>
                 <td><span class="badge bg-secondary-subtle text-secondary">{{ usuario.perfil|capitalize }}</span></td>
+                <td>{{ usuario.area.nome if usuario.area else '—' }}</td>
+                <td>{{ usuario.gestor.nome if usuario.gestor else '—' }}</td>
                 <td><span class="badge bg-{{ 'success' if usuario.ativo else 'secondary' }}-subtle text-{{ 'success' if usuario.ativo else 'secondary' }}">{{ 'Ativo' if usuario.ativo else 'Inativo' }}</span></td>
                 <td class="text-end pe-3">
                     <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editar{{ usuario.id }}"><i class="bi bi-pencil"></i></button>
@@ -34,6 +36,13 @@
         </table>
     </div>
 </div>
+
+<div class="row g-3 mt-4">
+<div class="col-md-5"><div class="card card-clean"><div class="card-body"><h6>Áreas</h6><form method="POST" action="{{ url_for('criar_area') }}" class="input-group input-group-sm mb-3"><input class="form-control" name="nome" placeholder="Nome da área" required><button class="btn btn-primary">Adicionar</button></form>{% for area in areas %}<div class="d-flex justify-content-between border-top py-1 small"><span>{{ area.nome }}</span><form method="POST" action="{{ url_for('alternar_area', area_id=area.id) }}"><button class="btn btn-link btn-sm">{{ 'Desativar' if area.ativo else 'Ativar' }}</button></form></div>{% endfor %}</div></div></div>
+<div class="col-md-7"><div class="card card-clean"><div class="card-body"><h6>Vincular usuário a área e gestor</h6><form method="POST" action="{{ url_for('vincular_usuario', usuario_id=0) }}" id="vinculo-form"><select class="form-select form-select-sm mb-2" id="vinculo-usuario" required><option value="">Selecione o usuário</option>{% for usuario in usuarios %}<option value="{{ usuario.id }}">{{ usuario.nome }} ({{ usuario.perfil }})</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="area_id"><option value="">Sem área</option>{% for area in areas if area.ativo %}<option value="{{ area.id }}">{{ area.nome }}</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="gestor_id"><option value="">Sem gestor</option>{% for gestor in gestores %}<option value="{{ gestor.id }}">{{ gestor.nome }}</option>{% endfor %}</select><button class="btn btn-primary btn-sm">Salvar vínculo</button></form></div></div></div>
+</div>
+
+<script>document.getElementById('vinculo-usuario').addEventListener('change', function () { document.getElementById('vinculo-form').action = '/admin/usuarios/' + this.value + '/vinculo'; });</script>
 
 <div class="modal fade" id="novoUsuario" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow"><form method="POST" action="{{ url_for('criar_usuario') }}">
 <div class="modal-header border-0"><h6 class="modal-title">Novo usuário</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>

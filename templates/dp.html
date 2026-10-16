@@ -78,7 +78,7 @@
                 <thead>
                     <tr>
                         <th class="ps-3">#</th>
-                        <th>Colaborador</th>
+                        <th>Solicitado por</th>
                         <th>Data</th>
                         <th>Tipo</th>
                         <th>Horários</th>
@@ -90,7 +90,7 @@
                     {% for s in solicitacoes %}
                     <tr>
                         <td class="ps-3 text-muted">{{ s.id }}</td>
-                        <td class="fw-500">{{ s.colaborador.nome }}<br><span class="small text-muted">{% for participante in s.participantes %}{{ participante.nome }} ({{ participante.matricula }}){% if not loop.last %}, {% endif %}{% endfor %}</span></td>
+                        <td class="fw-500">{{ s.colaborador.nome }}<br><span class="small text-muted">{{ s.colaborador.matricula }}{% if s.colaborador.area %} · {{ s.colaborador.area.nome }}{% endif %}</span><br><span class="small text-muted">{% for participante in s.participantes %}{{ participante.nome }} ({{ participante.matricula }}){% if not loop.last %}, {% endif %}{% endfor %}</span></td>
                         <td>{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</td>
                         <td class="small">{{ s.tipo_ocorrencia }}<br><span class="text-muted">{{ s.tipo_justificativa or '—' }}</span></td>
                         <td class="small">

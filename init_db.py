@@ -4,7 +4,7 @@ Execute uma vez: python init_db.py
 """
 
 from app import app, db
-from models import Usuario, Colaborador, TipoJustificativa, Solicitacao, solicitacao_colaboradores
+from models import Usuario, Colaborador, TipoJustificativa, Solicitacao, solicitacao_colaboradores, Area
 import sqlite3
 import os
 from werkzeug.security import generate_password_hash
@@ -34,6 +34,11 @@ def criar_usuario_ti():
 def criar_dados_iniciais():
     with app.app_context():
         db.create_all()
+        # Migração idempotente para bases anteriores ao cadastro de áreas.
+        colunas_usuario = {coluna['name'] for coluna in db.session.execute(db.text('PRAGMA table_info(usuarios)')).mappings()}
+        if 'area_id' not in colunas_usuario:
+            db.session.execute(db.text('ALTER TABLE usuarios ADD COLUMN area_id INTEGER'))
+            db.session.commit()
         if not Usuario.query.filter_by(matricula='TI001').first():
             criar_usuario_ti()
         # Compatibilidade com bancos SQLite criados antes da coluna separada.

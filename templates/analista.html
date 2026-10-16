@@ -49,6 +49,7 @@
                     <tr>
                         <th class="ps-3">#</th>
                         <th>Data</th>
+                        <th>Solicitado por</th>
                         <th>Colaborador(es)</th>
                         <th>Ocorrência</th>
                         <th>Justificativa</th>
@@ -62,6 +63,7 @@
                     <tr>
                         <td class="ps-3 text-muted">{{ s.id }}</td>
                         <td class="fw-500">{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</td>
+                        <td class="small">{{ s.colaborador.nome }}<br>{{ s.colaborador.matricula }}</td>
                         <td class="small">{% for participante in s.participantes %}{{ participante.nome }} ({{ participante.matricula }}){% if not loop.last %}, {% endif %}{% endfor %}</td>
                         <td>{{ s.tipo_ocorrencia }}</td>
                         <td>{{ s.tipo_justificativa or '—' }}</td>
