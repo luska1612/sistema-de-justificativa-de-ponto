@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Departamento Pessoal{% endblock %}
+
+{% block content %}
+<!-- Cabeçalho -->
+<div class="mb-4">
+    <h5 class="fw-600 mb-1">Departamento Pessoal</h5>
+    <p class="text-muted small mb-0">Fila de solicitações pré-aprovadas pelos gestores</p>
+</div>
+
+<!-- ─── CADASTROS ─── -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card card-clean"><div class="card-body">
+            <h6>Colaboradores</h6>
+            <form method="POST" action="{{ url_for('cadastrar_colaborador') }}" class="row g-2 mb-3">
+                <div class="col-6"><input class="form-control form-control-sm" name="nome" placeholder="Nome (somente letras)" pattern="[A-Za-zÀ-ÿ ]+" required></div>
+                <div class="col-4"><input class="form-control form-control-sm" name="matricula" placeholder="Matrícula" inputmode="numeric" pattern="[0-9]+" required></div>
+                <div class="col-2"><button class="btn btn-primary btn-sm w-100">Adicionar</button></div>
+            </form>
+            <div class="small">{% for c in colaboradores %}<div class="d-flex justify-content-between border-top py-1"><span>{{ c.nome }} — {{ c.matricula }}</span><form method="POST" action="{{ url_for('alternar_colaborador', colaborador_id=c.id) }}"><button class="btn btn-link btn-sm">{% if c.ativo %}Desativar{% else %}Ativar{% endif %}</button></form></div>{% endfor %}</div>
+        </div></div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-clean"><div class="card-body">
+            <h6>Tipos de justificativa</h6>
+            {% if current_user.perfil == 'dp' %}<form method="POST" action="{{ url_for('cadastrar_tipo') }}" class="input-group input-group-sm mb-3"><input class="form-control" name="nome" placeholder="Ex.: Horário excedido" required><button class="btn btn-primary">Adicionar</button></form>{% endif %}
+            <div class="small">{% for tipo in tipos %}<div class="d-flex justify-content-between border-top py-1"><span>{{ tipo.nome }}</span>{% if current_user.perfil == 'dp' %}<form method="POST" action="{{ url_for('alternar_tipo', tipo_id=tipo.id) }}"><button class="btn btn-link btn-sm">{% if tipo.ativo %}Desativar{% else %}Ativar{% endif %}</button></form>{% endif %}</div>{% endfor %}</div>
+        </div></div>
+    </div>
+</div>
+
+<!-- ─── FILTROS ─── -->
+<div class="card card-clean mb-4">
+    <div class="card-body p-3">
+        <form method="GET" action="{{ url_for('painel_dp') }}" class="row g-2 align-items-end">
+            <div class="col-sm-3">
+                <label class="form-label small fw-500 mb-1">Status</label>
+                <select class="form-select form-select-sm" name="status">
+                    <option value="aprovado_gestor" {% if filtro_status == 'aprovado_gestor' %}selected{% endif %}>
+                        Aguardando DP
+                    </option>
+                    <option value="aprovado_dp" {% if filtro_status == 'aprovado_dp' %}selected{% endif %}>
+                        Concluídos
+                    </option>
+                    <option value="recusado_dp" {% if filtro_status == 'recusado_dp' %}selected{% endif %}>
+                        Recusados pelo DP
+                    </option>
+                    <option value="todos" {% if filtro_status == 'todos' %}selected{% endif %}>
+                        Todos
+                    </option>
+                </select>
+            </div>
+            <div class="col-sm-3">
+                <label class="form-label small fw-500 mb-1">Data da Ocorrência</label>
+                <input type="date" class="form-control form-control-sm" name="data" value="{{ filtro_data }}">
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small fw-500 mb-1">Colaborador</label>
+                <input type="text" class="form-control form-control-sm" name="colaborador"
+                       value="{{ filtro_colaborador }}" placeholder="Nome do colaborador...">
+            </div>
+            <div class="col-sm-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-funnel me-1"></i>Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ─── TABELA ─── -->
+<div class="card card-clean">
+    <div class="card-body p-0">
+        {% if solicitacoes %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">#</th>
+                        <th>Colaborador</th>
+                        <th>Data</th>
+                        <th>Tipo</th>
+                        <th>Horários</th>
+                        <th>Status</th>
+                        <th class="text-end pe-3">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in solicitacoes %}
+                    <tr>
+                        <td class="ps-3 text-muted">{{ s.id }}</td>
+                        <td class="fw-500">{{ s.colaborador.nome }}<br><span class="small text-muted">{% for participante in s.participantes %}{{ participante.nome }} ({{ participante.matricula }}){% if not loop.last %}, {% endif %}{% endfor %}</span></td>
+                        <td>{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</td>
+                        <td class="small">{{ s.tipo_ocorrencia }}<br><span class="text-muted">{{ s.tipo_justificativa or '—' }}</span></td>
+                        <td class="small">
+                            {% if s.horario_entrada %}E: {{ s.horario_entrada }}{% endif %}
+                            {% if s.horario_saida %} S: {{ s.horario_saida }}{% endif %}
+                            {% if not s.horario_entrada and not s.horario_saida %}—{% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ s.status_cor }}-subtle text-{{ s.status_cor }} badge-status">
+                                {{ s.status_label }}
+                            </span>
+                        </td>
+                        <td class="text-end pe-3">
+                            <div class="d-flex justify-content-end gap-1">
+                                <!-- Ver detalhes -->
+                                <button class="btn btn-sm btn-outline-secondary"
+                                        data-bs-toggle="modal" data-bs-target="#dpDet{{ s.id }}"
+                                        title="Detalhes">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+
+                                {% if s.status == 'aprovado_gestor' %}
+                                <!-- Aprovar -->
+                                <form method="POST" action="{{ url_for('dp_aprovar', sol_id=s.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-success" title="Finalizar Ajuste">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </form>
+                                <!-- Recusar -->
+                                <button class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#dpRecusar{{ s.id }}"
+                                        title="Recusar">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            <p class="mb-0">Nenhuma solicitação encontrada com os filtros aplicados.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ─── MODAIS: Detalhes e Recusa ─── -->
+{% for s in solicitacoes %}
+<!-- Detalhes -->
+<div class="modal fade" id="dpDet{{ s.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-600">
+                    Solicitação #{{ s.id }}
+                    <span class="badge bg-{{ s.status_cor }}-subtle text-{{ s.status_cor }} ms-2">{{ s.status_label }}</span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2 small">
+                    <div class="col-12"><strong>Solicitante:</strong> {{ s.colaborador.nome }}</div>
+                    <div class="col-12"><strong>Colaborador(es):</strong> {% for participante in s.participantes %}{{ participante.nome }} ({{ participante.matricula }}){% if not loop.last %}, {% endif %}{% endfor %}</div>
+                    <div class="col-6"><strong>Data:</strong> {{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</div>
+                    <div class="col-6"><strong>Ocorrência:</strong> {{ s.tipo_ocorrencia }}</div>
+                    <div class="col-6"><strong>Justificativa:</strong> {{ s.tipo_justificativa or '—' }}</div>
+                    <div class="col-6"><strong>Entrada:</strong> {{ s.horario_entrada or '—' }}</div>
+                    <div class="col-6"><strong>Saída:</strong> {{ s.horario_saida or '—' }}</div>
+                </div>
+
+                <hr class="my-2">
+                <p class="small mb-1"><strong>Motivo do colaborador:</strong></p>
+                <p class="small text-muted">{{ s.motivo }}</p>
+
+                {% if s.comprovante %}
+                <a href="{{ url_for('uploaded_file', filename=s.comprovante) }}" target="_blank"
+                   class="btn btn-sm btn-outline-primary mb-2">
+                    <i class="bi bi-paperclip me-1"></i>Ver comprovante
+                </a>
+                {% endif %}
+
+                {% if s.gestor_parecer %}
+                <hr class="my-2">
+                <p class="small mb-0">
+                    <strong>Parecer do Gestor ({{ s.gestor_resp.nome if s.gestor_resp else '—' }}):</strong>
+                    <span class="text-muted">{{ s.gestor_parecer }}</span>
+                </p>
+                {% endif %}
+
+                {% if s.dp_parecer %}
+                <p class="small mb-0 mt-1">
+                    <strong>Parecer do DP ({{ s.dp_resp.nome if s.dp_resp else '—' }}):</strong>
+                    <span class="text-muted">{{ s.dp_parecer }}</span>
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if s.status == 'aprovado_gestor' %}
+<!-- Recusa do DP -->
+<div class="modal fade" id="dpRecusar{{ s.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" action="{{ url_for('dp_recusar', sol_id=s.id) }}">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-600">Recusar #{{ s.id }}</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label small fw-500">Motivo da recusa <span class="text-danger">*</span></label>
+                    <textarea class="form-control" name="justificativa" rows="3"
+                              placeholder="Explique o motivo..." required></textarea>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm px-3">Confirmar Recusa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

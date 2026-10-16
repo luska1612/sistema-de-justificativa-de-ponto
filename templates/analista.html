@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Painel do Analista{% endblock %}
+
+{% block content %}
+<!-- Cabeçalho -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <div>
+        <h5 class="fw-600 mb-1">Minhas Justificativas</h5>
+        <p class="text-muted small mb-0">Acompanhe o status das suas solicitações</p>
+    </div>
+    <button class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#modalNova">
+        <i class="bi bi-plus-lg me-1"></i> Nova Justificativa
+    </button>
+</div>
+
+<!-- Contadores rápidos -->
+<div class="row g-3 mb-4">
+    {% set pendentes = solicitacoes | selectattr('status', 'equalto', 'pendente') | list | length %}
+    {% set aprovadas = solicitacoes | selectattr('status', 'in', ['aprovado_gestor','aprovado_dp']) | list | length %}
+    {% set recusadas = solicitacoes | selectattr('status', 'in', ['recusado_gestor','recusado_dp']) | list | length %}
+
+    <div class="col-4">
+        <div class="card card-clean text-center p-3">
+            <div class="fs-3 fw-700 text-warning">{{ pendentes }}</div>
+            <div class="small text-muted">Pendentes</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card card-clean text-center p-3">
+            <div class="fs-3 fw-700 text-success">{{ aprovadas }}</div>
+            <div class="small text-muted">Aprovadas</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card card-clean text-center p-3">
+            <div class="fs-3 fw-700 text-danger">{{ recusadas }}</div>
+            <div class="small text-muted">Recusadas</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela de Solicitações -->
+<div class="card card-clean">
+    <div class="card-body p-0">
+        {% if solicitacoes %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">#</th>
+                        <th>Data</th>
+                        <th>Colaborador(es)</th>
+                        <th>Ocorrência</th>
+                        <th>Justificativa</th>
+                        <th>Horários</th>
+                        <th>Status</th>
+                        <th class="text-end pe-3">Detalhes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in solicitacoes %}
+                    <tr>
+                        <td class="ps-3 text-muted">{{ s.id }}</td>
+                        <td class="fw-500">{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</td>
+                        <td class="small">{% for participante in s.participantes %}{{ participante.nome }} ({{ participante.matricula }}){% if not loop.last %}, {% endif %}{% endfor %}</td>
+                        <td>{{ s.tipo_ocorrencia }}</td>
+                        <td>{{ s.tipo_justificativa or '—' }}</td>
+                        <td class="small">
+                            {% if s.horario_entrada %}E: {{ s.horario_entrada }}{% endif %}
+                            {% if s.horario_saida %} S: {{ s.horario_saida }}{% endif %}
+                            {% if not s.horario_entrada and not s.horario_saida %}—{% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ s.status_cor }}-subtle text-{{ s.status_cor }} badge-status">
+                                {{ s.status_label }}
+                            </span>
+                        </td>
+                        <td class="text-end pe-3">
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#detModal{{ s.id }}">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            <p>Nenhuma solicitação registrada.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ─── MODAL: Nova Justificativa ─── -->
+<div class="modal fade" id="modalNova" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-600">
+                    <i class="bi bi-plus-circle text-primary me-2"></i>Nova Justificativa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('nova_solicitacao') }}" enctype="multipart/form-data">
+                <div class="modal-body">
+
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-500">Data da Ocorrência <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="data_ocorrencia" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" autocomplete="off" required>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-500">Tipo de ocorrência <span class="text-danger">*</span></label>
+                            <select class="form-select" name="tipo_ocorrencia" required>
+                                <option value="">Selecione...</option>
+                                {% for ocorrencia in tipos_ocorrencia %}<option value="{{ ocorrencia }}">{{ ocorrencia }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-500">Tipo de justificativa <span class="text-danger">*</span></label>
+                            <select class="form-select" name="tipo_justificativa" required>
+                                <option value="">Selecione...</option>
+                                {% for tipo in tipos %}<option value="{{ tipo.nome }}">{{ tipo.nome }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <label class="form-label small fw-500">Colaboradores envolvidos <span class="text-danger">*</span></label>
+                        <div id="colaboradores-lista">
+                            <div class="row g-2 colaborador-linha mb-2">
+                                <div class="col-7"><input class="form-control colaborador-nome" name="colaborador_nome[]" placeholder="Nome completo" maxlength="100" pattern="[A-Za-zÀ-ÿ ]+" required></div>
+                                <div class="col-4"><input class="form-control colaborador-matricula" name="colaborador_matricula[]" placeholder="Matrícula" inputmode="numeric" maxlength="20" pattern="[0-9]+" required></div>
+                                <div class="col-1"><button type="button" class="btn btn-outline-danger remover-colaborador" disabled>&times;</button></div>
+                            </div>
+                        </div>
+                        <div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="temMultiplos"><label class="form-check-label small" for="temMultiplos">Mais de um colaborador</label></div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2 d-none" id="adicionar-colaborador"><i class="bi bi-plus"></i> Adicionar colaborador</button>
+                        <div class="form-text">Informe manualmente o nome completo e a matrícula do colaborador.</div>
+                    </div>
+
+                    <div class="row g-3 mt-0">
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-500">Horário Entrada</label>
+                            <input type="text" class="form-control" name="horario_entrada" placeholder="hh:mm" inputmode="numeric" maxlength="5" pattern="[0-9]{2}:[0-9]{2}">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-500">Horário Saída</label>
+                            <input type="text" class="form-control" name="horario_saida" placeholder="hh:mm" inputmode="numeric" maxlength="5" pattern="[0-9]{2}:[0-9]{2}">
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <label class="form-label small fw-500">Motivo <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="motivo" rows="3"
+                                  placeholder="Descreva o motivo da justificativa..." required></textarea>
+                    </div>
+
+                    <div class="mt-3">
+                        <label class="form-label small fw-500">Comprovante <span class="text-muted">(PDF, PNG, JPG)</span></label>
+                        <input type="file" class="form-control" name="comprovante"
+                               accept=".pdf,.png,.jpg,.jpeg">
+                    </div>
+
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="bi bi-send me-1"></i> Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ─── MODAIS: Detalhes de cada solicitação ─── -->
+{% for s in solicitacoes %}
+<div class="modal fade" id="detModal{{ s.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-600">
+                    Solicitação #{{ s.id }}
+                    <span class="badge bg-{{ s.status_cor }}-subtle text-{{ s.status_cor }} ms-2">{{ s.status_label }}</span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2 small">
+                    <div class="col-6"><strong>Data:</strong> {{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</div>
+                    <div class="col-12"><strong>Colaborador(es):</strong> {% for participante in s.participantes %}{{ participante.nome }} ({{ participante.matricula }}){% if not loop.last %}, {% endif %}{% endfor %}</div>
+                    <div class="col-6"><strong>Ocorrência:</strong> {{ s.tipo_ocorrencia }}</div>
+                    <div class="col-6"><strong>Justificativa:</strong> {{ s.tipo_justificativa or '—' }}</div>
+                    <div class="col-6"><strong>Entrada:</strong> {{ s.horario_entrada or '—' }}</div>
+                    <div class="col-6"><strong>Saída:</strong> {{ s.horario_saida or '—' }}</div>
+                </div>
+                <hr class="my-2">
+                <p class="small mb-1"><strong>Motivo:</strong></p>
+                <p class="small text-muted">{{ s.motivo }}</p>
+
+                {% if s.comprovante %}
+                <a href="{{ url_for('uploaded_file', filename=s.comprovante) }}" target="_blank"
+                   class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-paperclip me-1"></i>Ver comprovante
+                </a>
+                {% endif %}
+
+                {% if s.gestor_parecer %}
+                <hr class="my-2">
+                <p class="small mb-0"><strong>Parecer do Gestor:</strong>
+                    <span class="text-muted">{{ s.gestor_parecer }}</span>
+                </p>
+                {% endif %}
+
+                {% if s.dp_parecer %}
+                <p class="small mb-0 mt-1"><strong>Parecer do DP:</strong>
+                    <span class="text-muted">{{ s.dp_parecer }}</span>
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

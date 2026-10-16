@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height:75vh">
+    <div class="col-11 col-sm-8 col-md-5 col-lg-4 col-xl-3">
+
+        <!-- Logo / Título -->
+        <div class="text-center mb-4">
+            <div class="login-icon mx-auto mb-3">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <h4 class="fw-600">Justificativas de Ponto</h4>
+            <p class="text-muted small">Acesse com sua matrícula e senha</p>
+        </div>
+
+        <!-- Card de Login -->
+        <div class="card card-clean">
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('login') }}" autocomplete="off">
+
+                    <div class="mb-3">
+                        <label for="matricula" class="form-label small fw-500">Matrícula</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent"><i class="bi bi-person"></i></span>
+                            <input type="text" class="form-control" id="matricula" name="matricula"
+                                   placeholder="Sua matrícula" required autofocus>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="senha" class="form-label small fw-500">Senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent"><i class="bi bi-lock"></i></span>
+                            <input type="password" class="form-control" id="senha" name="senha"
+                                   placeholder="••••••" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                    </button>
+
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

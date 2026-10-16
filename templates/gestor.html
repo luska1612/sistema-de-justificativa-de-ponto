@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Painel do Gestor{% endblock %}
+
+{% block content %}
+<!-- Cabeçalho -->
+<div class="mb-4">
+    <h5 class="fw-600 mb-1">Aprovações da Equipe</h5>
+    <p class="text-muted small mb-0">Analise e aprove as justificativas dos seus colaboradores</p>
+</div>
+
+<!-- ─── PENDENTES ─── -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <h6 class="fw-600 mb-0">Pendentes</h6>
+    <span class="badge bg-warning-subtle text-warning">{{ pendentes | length }}</span>
+</div>
+
+{% if pendentes %}
+<div class="row g-3 mb-4">
+    {% for s in pendentes %}
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="card card-clean card-hover h-100">
+            <div class="card-body p-3">
+                <!-- Header do card -->
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="fw-600">Solicitante: {{ s.colaborador.nome }}</span>
+                        <span class="text-muted small ms-1">#{{ s.id }}</span>
+                        <div class="small text-muted mt-1">Colaborador(es): {% for participante in s.participantes %}{{ participante.nome }} ({{ participante.matricula }}){% if not loop.last %}, {% endif %}{% endfor %}</div>
+                    </div>
+                    <span class="badge bg-warning-subtle text-warning badge-status">Pendente</span>
+                </div>
+
+                <!-- Info -->
+                <div class="row g-1 small text-muted mb-2">
+                    <div class="col-6"><i class="bi bi-calendar3 me-1"></i>{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</div>
+                    <div class="col-6"><i class="bi bi-tag me-1"></i>{{ s.tipo_ocorrencia }}</div>
+                    <div class="col-6"><i class="bi bi-file-text me-1"></i>{{ s.tipo_justificativa or '—' }}</div>
+                    <div class="col-6">
+                        {% if s.horario_entrada %}<i class="bi bi-box-arrow-in-right me-1"></i>{{ s.horario_entrada }}{% endif %}
+                    </div>
+                    <div class="col-6">
+                        {% if s.horario_saida %}<i class="bi bi-box-arrow-right me-1"></i>{{ s.horario_saida }}{% endif %}
+                    </div>
+                </div>
+
+                <!-- Motivo -->
+                <p class="small text-muted mb-2 motivo-truncado" title="{{ s.motivo }}">{{ s.motivo }}</p>
+
+                <!-- Comprovante -->
+                {% if s.comprovante %}
+                <a href="{{ url_for('uploaded_file', filename=s.comprovante) }}" target="_blank"
+                   class="small text-primary text-decoration-none d-block mb-3">
+                    <i class="bi bi-paperclip me-1"></i>Ver comprovante
+                </a>
+                {% endif %}
+
+                <!-- Ações -->
+                <div class="d-flex gap-2 mt-auto">
+                    <form method="POST" action="{{ url_for('gestor_aprovar', sol_id=s.id) }}" class="flex-fill">
+                        <button type="submit" class="btn btn-success btn-sm w-100">
+                            <i class="bi bi-check-lg me-1"></i>Aprovar
+                        </button>
+                    </form>
+                    <button type="button" class="btn btn-outline-danger btn-sm flex-fill"
+                            data-bs-toggle="modal" data-bs-target="#recusarModal{{ s.id }}">
+                        <i class="bi bi-x-lg me-1"></i>Recusar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Recusa -->
+    <div class="modal fade" id="recusarModal{{ s.id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow">
+                <form method="POST" action="{{ url_for('gestor_recusar', sol_id=s.id) }}">
+                    <div class="modal-header border-0 pb-0">
+                        <h6 class="modal-title fw-600">Recusar #{{ s.id }}</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label small fw-500">Motivo da recusa <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="justificativa" rows="3"
+                                  placeholder="Explique o motivo..." required></textarea>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger btn-sm px-3">Confirmar Recusa</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card card-clean mb-4">
+    <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-check-circle fs-1 d-block mb-2 text-success"></i>
+        <p class="mb-0">Nenhuma solicitação pendente. Tudo em dia!</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- ─── HISTÓRICO ─── -->
+<div class="d-flex align-items-center gap-2 mb-3 mt-4">
+    <h6 class="fw-600 mb-0">Histórico Recente</h6>
+    <span class="badge bg-secondary-subtle text-secondary">{{ historico | length }}</span>
+</div>
+
+<div class="card card-clean">
+    <div class="card-body p-0">
+        {% if historico %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">#</th>
+                        <th>Colaborador</th>
+                        <th>Data</th>
+                        <th>Tipo</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in historico %}
+                    <tr>
+                        <td class="ps-3 text-muted">{{ s.id }}</td>
+                        <td class="fw-500">{{ s.colaborador.nome }}</td>
+                        <td>{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</td>
+                        <td class="small">{{ s.tipo_ocorrencia }}<br><span class="text-muted">{{ s.tipo_justificativa or '—' }}</span></td>
+                        <td>
+                            <span class="badge bg-{{ s.status_cor }}-subtle text-{{ s.status_cor }} badge-status">
+                                {{ s.status_label }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted small">
+            Nenhum registro no histórico.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
