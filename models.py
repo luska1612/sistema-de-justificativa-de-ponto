@@ -7,6 +7,12 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+area_empresas = db.Table(
+    'area_empresas',
+    db.Column('area_id', db.Integer, db.ForeignKey('areas.id'), primary_key=True),
+    db.Column('empresa_id', db.Integer, db.ForeignKey('empresas.id'), primary_key=True),
+)
+
 solicitacao_colaboradores = db.Table(
     'solicitacao_colaboradores',
     db.Column('solicitacao_id', db.Integer, db.ForeignKey('solicitacoes.id'), primary_key=True),
@@ -19,6 +25,7 @@ class Empresa(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(120), unique=True, nullable=False)
     ativo = db.Column(db.Boolean, default=True, nullable=False)
+    areas = db.relationship('Area', secondary='area_empresas', back_populates='empresas')
 
 
 class TipoOcorrencia(db.Model):
@@ -33,6 +40,7 @@ class Area(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), unique=True, nullable=False)
     ativo = db.Column(db.Boolean, default=True, nullable=False)
+    empresas = db.relationship('Empresa', secondary='area_empresas', back_populates='areas')
 
 
 class Usuario(UserMixin, db.Model):
@@ -105,11 +113,15 @@ class Solicitacao(db.Model):
     dp_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
     dp_parecer = db.Column(db.Text, nullable=True)
     dp_data = db.Column(db.DateTime, nullable=True)
+    supervisor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+    supervisor_parecer = db.Column(db.Text, nullable=True)
+    supervisor_data = db.Column(db.DateTime, nullable=True)
     criado_em = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     atualizado_em = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                                onupdate=lambda: datetime.now(timezone.utc))
     gestor_resp = db.relationship('Usuario', foreign_keys=[gestor_id])
     dp_resp = db.relationship('Usuario', foreign_keys=[dp_id])
+    supervisor_resp = db.relationship('Usuario', foreign_keys=[supervisor_id])
 
     @property
     def colaboradores_exibicao(self):
@@ -121,10 +133,10 @@ class Solicitacao(db.Model):
     def status_label(self):
         return {'pendente': 'Pendente', 'aprovado_gestor': 'Aprovado pelo Gestor',
                 'recusado_gestor': 'Recusado pelo Gestor', 'aprovado_dp': 'Concluído',
-                'recusado_dp': 'Recusado pelo DP'}.get(self.status, self.status)
+                'recusado_dp': 'Recusado pelo DP', 'encaminhado_supervisor': 'Aguardando supervisor administrativo', 'aprovado_supervisor': 'Aprovado pelo supervisor', 'recusado_supervisor': 'Recusado pelo supervisor'}.get(self.status, self.status)
 
     @property
     def status_cor(self):
         return {'pendente': 'warning', 'aprovado_gestor': 'info',
                 'recusado_gestor': 'danger', 'aprovado_dp': 'success',
-                'recusado_dp': 'danger'}.get(self.status, 'secondary')
+                'recusado_dp': 'danger', 'encaminhado_supervisor': 'warning', 'aprovado_supervisor': 'info', 'recusado_supervisor': 'danger'}.get(self.status, 'secondary')

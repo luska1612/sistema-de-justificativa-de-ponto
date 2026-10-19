@@ -2,7 +2,7 @@
 {% block title %}Login{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center align-items-center" style="min-height:75vh">
+<div class="row justify-content-center align-items-center min-vh-75">
     <div class="col-11 col-sm-8 col-md-5 col-lg-4 col-xl-3">
 
         <!-- Logo / Título -->
@@ -18,6 +18,7 @@
         <div class="card card-clean">
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('login') }}" autocomplete="off">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                     <div class="mb-3">
                         <label for="matricula" class="form-label small fw-500">Matrícula</label>

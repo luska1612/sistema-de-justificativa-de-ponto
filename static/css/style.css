@@ -37,10 +37,45 @@ main {
     flex: 1;
 }
 
+.min-vh-75 { min-height: 75vh; }
+
+a { color: var(--color-primary); }
+a:hover { color: var(--color-primary-hover); }
+
+.text-muted { color: var(--color-text-muted) !important; }
+
 /* ─── Tipografia helpers ─── */
 .fw-500 { font-weight: 500; }
 .fw-600 { font-weight: 600; }
 .fw-700 { font-weight: 700; }
+
+/* ─── Layout primitives ─── */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.page-header h1,
+.page-header h2,
+.page-header h3,
+.page-header h4,
+.page-header h5 {
+    margin-bottom: 0.25rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+}
+
+.page-header p { margin-bottom: 0; color: var(--color-text-muted); }
+.section-card { height: 100%; overflow: hidden; }
+.section-card .card-header { background: transparent; border-bottom: 1px solid var(--color-border); padding: 1rem 1.25rem; }
+.section-card .card-body { padding: 1.25rem; }
+.table-wrap { overflow-x: auto; border-radius: var(--radius); }
+.action-group { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.empty-state { padding: 3rem 1rem; text-align: center; color: var(--color-text-muted); }
+.empty-state i { display: block; font-size: 2rem; margin-bottom: .75rem; opacity: .55; }
 
 /* ─── Navbar ─── */
 .navbar {
@@ -66,8 +101,27 @@ main {
     transition: var(--transition);
 }
 
-.nav-link:hover {
+.nav-link:hover,
+.nav-link:focus-visible {
     color: var(--color-text) !important;
+}
+
+.navbar .nav-link {
+    border-radius: 7px;
+    padding: .5rem .65rem;
+}
+
+.navbar .nav-link:focus-visible,
+.navbar .nav-link:hover {
+    background: #f1f4f8;
+}
+
+.navbar-toggler:focus-visible,
+.btn:focus-visible,
+a:focus-visible,
+.form-check-input:focus-visible {
+    outline: 3px solid rgba(59, 89, 152, .25);
+    outline-offset: 2px;
 }
 
 .nav-link.text-danger:hover {
@@ -342,6 +396,26 @@ footer {
 
     .modal-content {
         border-radius: 14px;
+    }
+
+    .page-header {
+        align-items: stretch;
+        flex-direction: column;
+        margin-bottom: 1.25rem;
+    }
+
+    .page-header .btn,
+    .page-header .action-group {
+        width: 100%;
+    }
+
+    .page-header .action-group .btn {
+        flex: 1;
+    }
+
+    .section-card .card-body,
+    .section-card .card-header {
+        padding: 1rem;
     }
 }
 

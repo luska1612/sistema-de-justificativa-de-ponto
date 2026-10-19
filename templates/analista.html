@@ -110,6 +110,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('salvar_solicitacao') }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
 
                     <div class="row g-3">
@@ -208,7 +209,7 @@
                 <p class="small text-muted">{{ s.motivo }}</p>
 
                 {% if s.comprovante %}
-                <a href="{{ url_for('uploaded_file', filename=s.comprovante) }}" target="_blank"
+                <a href="{{ url_for('uploaded_file', sol_id=s.id) }}" target="_blank"
                    class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-paperclip me-1"></i>Ver comprovante
                 </a>

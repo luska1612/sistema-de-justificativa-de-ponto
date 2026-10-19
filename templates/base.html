@@ -16,7 +16,7 @@
 
     {% if current_user.is_authenticated %}
     <!-- ─── NAVBAR ─── -->
-    <nav class="navbar navbar-expand-lg sticky-top">
+    <nav class="navbar navbar-expand-lg sticky-top" aria-label="Navegação principal">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center gap-2" href="{{ url_for('dashboard') }}">
                 <i class="bi bi-clock-history fs-5"></i>
@@ -36,11 +36,15 @@
                             <span class="badge bg-secondary-subtle text-secondary ms-1">{{ current_user.perfil|capitalize }}</span>
                         </span>
                     </li>
-                    {% if current_user.perfil == 'ti' %}<li class="nav-item"><a class="nav-link" href="{{ url_for('painel_admin') }}"><i class="bi bi-shield-lock me-1"></i>Administração</a></li>{% endif %}
+                    {% if current_user.perfil == 'ti' %}<li class="nav-item"><a class="nav-link" href="{{ url_for('painel_admin') }}"><i class="bi bi-shield-lock me-1"></i>Administração</a></li>{% elif current_user.perfil == 'supervisor_administrativo' %}<li class="nav-item"><a class="nav-link" href="{{ url_for('painel_supervisor') }}"><i class="bi bi-clipboard-check me-1"></i>Aprovações</a></li>{% endif %}
+                    {% if current_user.perfil in ['dp', 'ti'] %}<li class="nav-item"><a class="nav-link" href="{{ url_for('painel_vinculos') }}"><i class="bi bi-people me-1"></i>Usuários</a></li><li class="nav-item"><a class="nav-link" href="{{ url_for('configuracoes') }}"><i class="bi bi-gear me-1"></i>Configurações</a></li>{% endif %}
                     <li class="nav-item">
-                        <a class="nav-link text-danger" href="{{ url_for('logout') }}">
-                            <i class="bi bi-box-arrow-right me-1"></i>Sair
-                        </a>
+                        <form method="POST" action="{{ url_for('logout') }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="nav-link text-danger border-0 bg-transparent" type="submit">
+                                <i class="bi bi-box-arrow-right me-1"></i>Sair
+                            </button>
+                        </form>
                     </li>
                 </ul>
             </div>

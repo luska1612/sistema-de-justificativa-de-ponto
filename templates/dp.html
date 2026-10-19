@@ -10,41 +10,6 @@
 <div class="mb-4"><a class="btn btn-primary" href="{{ url_for('solicitacao_nova') }}"><i class="bi bi-plus-lg me-1"></i>Nova justificativa</a></div>
 <div class="card card-clean mb-4"><div class="card-body"><h6>Minhas solicitações</h6><div class="table-responsive"><table class="table table-sm align-middle mb-0"><tbody>{% for s in minhas_solicitacoes %}<tr><td>#{{ s.id }}</td><td>{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</td><td><span class="badge bg-{{ s.status_cor }}-subtle text-{{ s.status_cor }}">{{ s.status_label }}</span></td><td class="text-end">{% if s.status == 'pendente' %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('editar_solicitacao', sol_id=s.id) }}">Editar</a>{% endif %}</td></tr>{% else %}<tr><td class="text-muted">Nenhuma solicitação própria.</td></tr>{% endfor %}</tbody></table></div></div></div>
 
-<!-- ─── CADASTROS ─── -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="card card-clean"><div class="card-body">
-            <h6>Colaboradores</h6>
-            <form method="POST" action="{{ url_for('cadastrar_colaborador') }}" class="row g-2 mb-3">
-                <div class="col-6"><input class="form-control form-control-sm" name="nome" placeholder="Nome (somente letras)" pattern="[A-Za-zÀ-ÿ ]+" required></div>
-                <div class="col-4"><input class="form-control form-control-sm" name="matricula" placeholder="Matrícula" inputmode="numeric" pattern="[0-9]+" required></div>
-                <div class="col-2"><button class="btn btn-primary btn-sm w-100">Adicionar</button></div>
-            </form>
-            {% set colaboradores_inativos = colaboradores | selectattr('ativo', 'equalto', false) | list %}
-            <div class="small">
-                {% for c in colaboradores if c.ativo %}
-                <div class="d-flex justify-content-between border-top py-1"><span>{{ c.nome }} — {{ c.matricula }}</span><form method="POST" action="{{ url_for('alternar_colaborador', colaborador_id=c.id) }}"><button class="btn btn-link btn-sm">Desativar</button></form></div>
-                {% endfor %}
-            </div>
-            {% if colaboradores_inativos %}<button class="btn btn-link btn-sm text-start px-0 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#colaboradores-inativos"><i class="bi bi-archive me-1"></i>Ver desativados ({{ colaboradores_inativos|length }})</button><div class="collapse small" id="colaboradores-inativos">{% for c in colaboradores_inativos %}<div class="d-flex justify-content-between border-top py-1"><span>{{ c.nome }} — {{ c.matricula }}</span><form method="POST" action="{{ url_for('alternar_colaborador', colaborador_id=c.id) }}"><button class="btn btn-link btn-sm">Ativar</button></form></div>{% endfor %}</div>{% endif %}
-        </div></div>
-    </div>
-    <div class="col-md-6">
-        <div class="card card-clean"><div class="card-body">
-            <h6>Tipos de ocorrência</h6>
-            <form method="POST" action="{{ url_for('cadastrar_ocorrencia') }}" class="input-group input-group-sm mb-3"><input class="form-control" name="nome" placeholder="Ex.: Horário excedido" required><button class="btn btn-primary">Adicionar</button></form>
-            {% set ocorrencias_inativas = tipos_ocorrencia | selectattr('ativo', 'equalto', false) | list %}
-            <div class="small mb-3">{% for ocorrencia in tipos_ocorrencia if ocorrencia.ativo %}<div class="d-flex justify-content-between border-top py-1"><span>{{ ocorrencia.nome }}</span><form method="POST" action="{{ url_for('alternar_ocorrencia', tipo_id=ocorrencia.id) }}"><button class="btn btn-link btn-sm">Desativar</button></form></div>{% endfor %}</div>
-            {% if ocorrencias_inativas %}<button class="btn btn-link btn-sm text-start px-0 mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#ocorrencias-inativas"><i class="bi bi-archive me-1"></i>Ver desativados ({{ ocorrencias_inativas|length }})</button><div class="collapse small mb-3" id="ocorrencias-inativas">{% for ocorrencia in ocorrencias_inativas %}<div class="d-flex justify-content-between border-top py-1"><span>{{ ocorrencia.nome }}</span><form method="POST" action="{{ url_for('alternar_ocorrencia', tipo_id=ocorrencia.id) }}"><button class="btn btn-link btn-sm">Ativar</button></form></div>{% endfor %}</div>{% endif %}
-            <h6>Tipos de justificativa</h6>
-            {% if current_user.perfil == 'dp' %}<form method="POST" action="{{ url_for('cadastrar_tipo') }}" class="input-group input-group-sm mb-3"><input class="form-control" name="nome" placeholder="Ex.: Horário excedido" required><button class="btn btn-primary">Adicionar</button></form>{% endif %}
-            {% set justificativas_inativas = tipos | selectattr('ativo', 'equalto', false) | list %}
-            <div class="small">{% for tipo in tipos if tipo.ativo %}<div class="d-flex justify-content-between border-top py-1"><span>{{ tipo.nome }}</span>{% if current_user.perfil == 'dp' %}<form method="POST" action="{{ url_for('alternar_tipo', tipo_id=tipo.id) }}"><button class="btn btn-link btn-sm">Desativar</button></form>{% endif %}</div>{% endfor %}</div>
-            {% if justificativas_inativas %}<button class="btn btn-link btn-sm text-start px-0 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#justificativas-inativas"><i class="bi bi-archive me-1"></i>Ver desativados ({{ justificativas_inativas|length }})</button><div class="collapse small" id="justificativas-inativas">{% for tipo in justificativas_inativas %}<div class="d-flex justify-content-between border-top py-1"><span>{{ tipo.nome }}</span>{% if current_user.perfil == 'dp' %}<form method="POST" action="{{ url_for('alternar_tipo', tipo_id=tipo.id) }}"><button class="btn btn-link btn-sm">Ativar</button></form>{% endif %}</div>{% endfor %}</div>{% endif %}
-        </div></div>
-    </div>
-</div>
-
 <!-- ─── FILTROS ─── -->
 <div class="card card-clean mb-4">
     <div class="card-body p-3">
@@ -52,9 +17,9 @@
             <div class="col-sm-3">
                 <label class="form-label small fw-500 mb-1">Status</label>
                 <select class="form-select form-select-sm" name="status">
-                    <option value="aprovado_gestor" {% if filtro_status == 'aprovado_gestor' %}selected{% endif %}>
-                        Aguardando DP
-                    </option>
+                    <option value="aprovado_gestor" {% if filtro_status == 'aprovado_gestor' %}selected{% endif %}>Aguardando confirmação do DP</option>
+                    <option value="aprovado_supervisor" {% if filtro_status == 'aprovado_supervisor' %}selected{% endif %}>Retornadas pelo supervisor</option>
+                    <option value="aguardando_supervisor" {% if filtro_status == 'aguardando_supervisor' %}selected{% endif %}>Fluxo do supervisor</option>
                     <option value="aprovado_dp" {% if filtro_status == 'aprovado_dp' %}selected{% endif %}>
                         Concluídos
                     </option>
@@ -127,9 +92,10 @@
                                     <i class="bi bi-eye"></i>
                                 </button>
 
-                                {% if s.status == 'aprovado_gestor' %}
+                                {% if s.status in ['aprovado_gestor', 'aprovado_supervisor'] %}
+                                {% if s.status == 'aprovado_gestor' %}<button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#dpEncaminhar{{ s.id }}" title="Encaminhar ao supervisor"><i class="bi bi-send"></i></button>{% endif %}
                                 <!-- Aprovar -->
-                                <form method="POST" action="{{ url_for('dp_aprovar', sol_id=s.id) }}" class="d-inline">
+                                <form method="POST" action="{{ url_for('dp_aprovar', sol_id=s.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-success" title="Finalizar Ajuste">
                                         <i class="bi bi-check-lg"></i>
                                     </button>
@@ -186,7 +152,7 @@
                 <p class="small text-muted">{{ s.motivo }}</p>
 
                 {% if s.comprovante %}
-                <a href="{{ url_for('uploaded_file', filename=s.comprovante) }}" target="_blank"
+                <a href="{{ url_for('uploaded_file', sol_id=s.id) }}" target="_blank"
                    class="btn btn-sm btn-outline-primary mb-2">
                     <i class="bi bi-paperclip me-1"></i>Ver comprovante
                 </a>
@@ -211,12 +177,13 @@
     </div>
 </div>
 
-{% if s.status == 'aprovado_gestor' %}
+{% if s.status in ['aprovado_gestor', 'aprovado_supervisor'] %}
+{% if s.status == 'aprovado_gestor' %}<div class="modal fade" id="dpEncaminhar{{ s.id }}" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><form method="POST" action="{{ url_for('dp_encaminhar_supervisor', sol_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="modal-header"><h6 class="modal-title">Encaminhar #{{ s.id }}</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><label class="form-label">Supervisor administrativo</label><select class="form-select" name="supervisor_id" required><option value="">Selecione...</option>{% for supervisor in supervisores %}<option value="{{ supervisor.id }}">{{ supervisor.nome }}</option>{% endfor %}</select></div><div class="modal-footer"><button class="btn btn-primary btn-sm">Encaminhar</button></div></form></div></div></div>
 <!-- Recusa do DP -->
 <div class="modal fade" id="dpRecusar{{ s.id }}" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow">
-            <form method="POST" action="{{ url_for('dp_recusar', sol_id=s.id) }}">
+            <form method="POST" action="{{ url_for('dp_recusar', sol_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-header border-0 pb-0">
                     <h6 class="modal-title fw-600">Recusar #{{ s.id }}</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -234,6 +201,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 {% endif %}
 {% endfor %}
 {% endblock %}

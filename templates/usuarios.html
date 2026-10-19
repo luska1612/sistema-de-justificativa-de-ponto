@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Usuários{% endblock %}
+{% block content %}
+<header class="page-header">
+    <div><h1 class="h4">Usuários</h1><p>Consulte vínculos e edite permissões de acesso.</p></div>
+    <span class="badge bg-primary-subtle text-primary align-self-start">{{ usuarios|length }} cadastro(s)</span>
+</header>
+<div class="card card-clean section-card">
+    <div class="card-body p-0 table-wrap">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th class="ps-3">Usuário</th><th>Matrícula</th><th>Perfil</th><th>Empresa</th><th>Área</th><th>Gestor</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for u in usuarios %}
+            <tr>
+                <td class="ps-3"><a class="fw-600 text-decoration-none" href="{{ url_for('permissoes_usuario', usuario_id=u.id) }}">{{ u.nome }}</a><div class="small text-muted">Ver permissões</div></td>
+                <td>{{ u.matricula }}</td>
+                <td><span class="badge bg-secondary-subtle text-secondary">{{ u.perfil|capitalize }}</span></td>
+                <td>{{ u.empresa.nome if u.empresa else '—' }}</td><td>{{ u.area.nome if u.area else '—' }}</td><td>{{ u.gestor.nome if u.gestor else '—' }}</td>
+                <td><span class="badge bg-{{ 'success' if u.ativo else 'secondary' }}-subtle text-{{ 'success' if u.ativo else 'secondary' }}">{{ 'Ativo' if u.ativo else 'Inativo' }}</span></td>
+            </tr>
+            {% else %}<tr><td colspan="7" class="empty-state"><i class="bi bi-people"></i>Nenhum usuário cadastrado.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

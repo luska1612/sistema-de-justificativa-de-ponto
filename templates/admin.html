@@ -7,10 +7,12 @@
         <h5 class="fw-600 mb-1">Administração de Usuários</h5>
         <p class="text-muted small mb-0">Gerenciamento restrito à TI</p>
     </div>
-    <a class="btn btn-primary me-2" href="{{ url_for('solicitacao_nova') }}"><i class="bi bi-plus-lg me-1"></i>Nova justificativa</a>
+    <div class="d-flex gap-2">
+    <a class="btn btn-primary" href="{{ url_for('solicitacao_nova') }}"><i class="bi bi-plus-lg me-1"></i>Nova justificativa</a>
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#novoUsuario">
         <i class="bi bi-person-plus me-1"></i>Novo usuário
     </button>
+    </div>
 </div>
 
 <div class="card card-clean mb-4">
@@ -46,6 +48,7 @@
         <div class="card-body">
             <h6>Departamentos/Áreas</h6>
             <form method="POST" action="{{ url_for('criar_area') }}" class="input-group input-group-sm mb-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input class="form-control" name="nome" placeholder="Nome da área" required>
                 <button class="btn btn-primary">Adicionar</button>
             </form>
@@ -55,6 +58,7 @@
                 <div class="d-flex justify-content-between border-top py-1 small">
                     <span>{{ area.nome }}</span>
                     <form method="POST" action="{{ url_for('alternar_area', area_id=area.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-link btn-sm">Desativar</button>
                     </form>
                 </div>
@@ -69,6 +73,7 @@
                 <div class="d-flex justify-content-between border-top py-1 small">
                     <span>{{ area.nome }}</span>
                     <form method="POST" action="{{ url_for('alternar_area', area_id=area.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-link btn-sm">Ativar</button>
                     </form>
                 </div>
@@ -80,7 +85,8 @@
     <div class="card card-clean admin-fixed-card">
         <div class="card-body">
             <h6>Empresas</h6>
-            <form method="POST" action="{{ url_for('criar_empresa') }}" class="input-group input-group-sm mb-3">
+            <form method="POST"
+                    ><input type="hidden" name="csrf_token" value="{{ csrf_token() }}" action="{{ url_for('criar_empresa') }}" class="input-group input-group-sm mb-3">
                 <input class="form-control" name="nome" placeholder="Nome da empresa" required>
                 <button class="btn btn-primary">Adicionar</button>
             </form>
@@ -89,7 +95,8 @@
                 {% for empresa in empresas if empresa.ativo %}
                 <div class="d-flex justify-content-between border-top py-1 small">
                     <span>{{ empresa.nome }}</span>
-                    <form method="POST" action="{{ url_for('alternar_empresa', empresa_id=empresa.id) }}">
+                    <form method="POST"
+                    ><input type="hidden" name="csrf_token" value="{{ csrf_token() }}" action="{{ url_for('alternar_empresa', empresa_id=empresa.id) }}">
                         <button class="btn btn-link btn-sm">Desativar</button>
                     </form>
                 </div>
@@ -103,7 +110,8 @@
                 {% for empresa in empresas_inativas %}
                 <div class="d-flex justify-content-between border-top py-1 small">
                     <span>{{ empresa.nome }}</span>
-                    <form method="POST" action="{{ url_for('alternar_empresa', empresa_id=empresa.id) }}">
+                    <form method="POST"
+                    ><input type="hidden" name="csrf_token" value="{{ csrf_token() }}" action="{{ url_for('alternar_empresa', empresa_id=empresa.id) }}">
                         <button class="btn btn-link btn-sm">Ativar</button>
                     </form>
                 </div>
@@ -113,26 +121,30 @@
         </div>
     </div>
 </div>
-<div class="col-md-7"><div class="card card-clean"><div class="card-body"><h6>Vincular usuário a área e gestor</h6><form method="POST" action="{{ url_for('vincular_usuario', usuario_id=0) }}" id="vinculo-form"><select class="form-select form-select-sm mb-2" id="vinculo-usuario" required><option value="">Selecione o usuário</option>{% for usuario in usuarios %}<option value="{{ usuario.id }}">{{ usuario.nome }} ({{ usuario.perfil }})</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="area_id"><option value="">Sem área</option>{% for area in areas if area.ativo %}<option value="{{ area.id }}">{{ area.nome }}</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="gestor_id"><option value="">Sem gestor</option>{% for gestor in gestores %}<option value="{{ gestor.id }}">{{ gestor.nome }}</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="empresa_id"><option value="">Sem empresa</option>{% for empresa in empresas if empresa.ativo %}<option value="{{ empresa.id }}">{{ empresa.nome }}</option>{% endfor %}</select><button class="btn btn-primary btn-sm">Salvar vínculo</button></form></div></div></div>
+<div class="col-md-7"><div class="card card-clean"><div class="card-body"><h6>Vincular usuário a área e gestor</h6><form method="POST" action="{{ url_for('vincular_usuario', usuario_id=0) }}" id="vinculo-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select class="form-select form-select-sm mb-2" id="vinculo-usuario" required><option value="">Selecione o usuário</option>{% for usuario in usuarios %}<option value="{{ usuario.id }}">{{ usuario.nome }} ({{ usuario.perfil }})</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="area_id"><option value="">Sem área</option>{% for area in areas if area.ativo %}<option value="{{ area.id }}">{{ area.nome }}</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="gestor_id"><option value="">Sem gestor</option>{% for gestor in gestores %}<option value="{{ gestor.id }}">{{ gestor.nome }}</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="empresa_id"><option value="">Sem empresa</option>{% for empresa in empresas if empresa.ativo %}<option value="{{ empresa.id }}">{{ empresa.nome }}</option>{% endfor %}</select><button class="btn btn-primary btn-sm">Salvar vínculo</button></form></div></div></div>
 </div>
 
 <script>document.getElementById('vinculo-usuario').addEventListener('change', function () { document.getElementById('vinculo-form').action = '/admin/usuarios/' + this.value + '/vinculo'; });</script>
 
 <div class="modal fade" id="novoUsuario" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow"><form method="POST" action="{{ url_for('criar_usuario') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="modal-header border-0"><h6 class="modal-title">Novo usuário</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body">
 <input class="form-control mb-2" name="nome" placeholder="Nome completo" required>
 <input class="form-control mb-2" name="matricula" placeholder="Matrícula" required>
 <input class="form-control mb-2" type="email" name="email" placeholder="E-mail" required>
-<select class="form-select mb-2" name="perfil" required><option value="analista">Analista</option><option value="gestor">Gestor</option><option value="dp">DP</option><option value="ti">TI</option></select>
+<select class="form-select mb-2" name="perfil" required><option value="analista">Analista</option><option value="gestor">Gestor</option><option value="dp">DP</option><option value="ti">TI</option>
+                            <option value="supervisor_administrativo">Supervisor administrativo</option></select>
 <input class="form-control" type="password" name="senha" placeholder="Senha inicial" minlength="8" required>
 </div><div class="modal-footer border-0"><button class="btn btn-primary">Criar usuário</button></div>
 </form></div></div></div>
 
 {% for usuario in usuarios %}
 <div class="modal fade" id="editar{{ usuario.id }}" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow"><form method="POST" action="{{ url_for('editar_usuario', usuario_id=usuario.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="modal-header border-0"><h6 class="modal-title">Editar usuário</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<div class="modal-body"><input class="form-control mb-2" name="nome" value="{{ usuario.nome }}" required><input class="form-control mb-2" name="matricula" value="{{ usuario.matricula }}" required><input class="form-control mb-2" type="email" name="email" value="{{ usuario.email }}" required><select class="form-select mb-2" name="perfil" required>{% for perfil in ['analista','gestor','dp','ti'] %}<option value="{{ perfil }}" {% if usuario.perfil == perfil %}selected{% endif %}>{{ perfil|capitalize }}</option>{% endfor %}</select><input class="form-control" type="password" name="senha" placeholder="Nova senha (opcional)" minlength="8"></div><div class="modal-footer border-0"><button class="btn btn-primary">Salvar alterações</button></div>
+<div class="modal-body"><input class="form-control mb-2" name="nome" value="{{ usuario.nome }}" required><input class="form-control mb-2" name="matricula" value="{{ usuario.matricula }}" required><input class="form-control mb-2" type="email" name="email" value="{{ usuario.email }}" required><select class="form-select mb-2" name="perfil" required>{% for perfil in ['analista','gestor','dp','ti','supervisor_administrativo'] %}<option value="{{ perfil }}" {% if usuario.perfil == perfil %}selected{% endif %}>{{ perfil|capitalize }}</option>{% endfor %}</select><input class="form-control" type="password" name="senha" placeholder="Nova senha (opcional)" minlength="8"></div><div class="modal-footer border-0"><button class="btn btn-primary">Salvar alterações</button></div>
 </form></div></div></div>
 {% endfor %}
 {% endblock %}

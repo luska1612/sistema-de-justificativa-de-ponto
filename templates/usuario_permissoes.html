@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Permissões de usuário{% endblock %}
+{% block content %}
+<header class="page-header">
+    <div><h1 class="h4">Permissões de {{ usuario.nome }}</h1><p>Configure acesso, status e vínculos organizacionais.</p></div>
+    <a class="btn btn-light" href="{{ url_for('painel_vinculos') }}"><i class="bi bi-arrow-left me-1"></i>Voltar</a>
+</header>
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-3">
+        <div class="col-lg-6"><section class="card card-clean section-card"><div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-person-vcard me-2 text-primary"></i>Dados de acesso</h2></div><div class="card-body">
+            <label class="form-label" for="nome">Nome completo</label><input id="nome" class="form-control mb-3" name="nome" value="{{ usuario.nome }}" required maxlength="100">
+            <label class="form-label" for="matricula">Matrícula</label><input id="matricula" class="form-control mb-3" name="matricula" value="{{ usuario.matricula }}" required maxlength="20">
+            <label class="form-label" for="email">E-mail</label><input id="email" class="form-control mb-3" type="email" name="email" value="{{ usuario.email }}" required maxlength="120">
+            <label class="form-label" for="senha">Nova senha</label><input id="senha" class="form-control" type="password" name="senha" placeholder="Deixe em branco para manter" minlength="8"><div class="form-text">Mínimo de 8 caracteres quando alterada.</div>
+        </div></section></div>
+        <div class="col-lg-6"><section class="card card-clean section-card"><div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-shield-check me-2 text-primary"></i>Perfil e status</h2></div><div class="card-body">
+            <label class="form-label" for="perfil">Perfil de acesso</label><select id="perfil" class="form-select mb-3" name="perfil">{% for p in ['analista','gestor','dp','ti','supervisor_administrativo'] %}<option value="{{ p }}" {% if usuario.perfil == p %}selected{% endif %}>{{ p|capitalize }}</option>{% endfor %}</select>
+            <div class="form-check form-switch mb-3"><input class="form-check-input" id="ativo" type="checkbox" name="ativo" {% if usuario.ativo %}checked{% endif %}><label class="form-check-label" for="ativo">Usuário ativo</label></div>
+            <div class="alert alert-light border small mb-0"><strong>Escopo dos perfis</strong><br><b>TI:</b> usuários e configurações.<br><b>DP:</b> solicitações e cadastros operacionais.<br><b>Gestor:</b> solicitações da equipe.<br><b>Analista:</b> próprias solicitações.</div>
+        </div></section></div>
+        <div class="col-12"><section class="card card-clean section-card"><div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-diagram-3 me-2 text-primary"></i>Vínculos organizacionais</h2></div><div class="card-body"><div class="row g-3">
+            <div class="col-md-4"><label class="form-label" for="empresa_id">Empresa</label><select id="empresa_id" class="form-select" name="empresa_id"><option value="">Sem empresa</option>{% for e in empresas %}<option value="{{ e.id }}" {% if usuario.empresa_id == e.id %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}</select></div>
+            <div class="col-md-4"><label class="form-label" for="area_id">Departamento</label><select id="area_id" class="form-select" name="area_id"><option value="">Sem departamento</option>{% for a in areas %}<option value="{{ a.id }}" {% if usuario.area_id == a.id %}selected{% endif %}>{{ a.nome }}</option>{% endfor %}</select></div>
+            <div class="col-md-4"><label class="form-label" for="gestor_id">Gestor</label><select id="gestor_id" class="form-select" name="gestor_id"><option value="">Sem gestor</option>{% for g in gestores if g.id != usuario.id %}<option value="{{ g.id }}" {% if usuario.gestor_id == g.id %}selected{% endif %}>{{ g.nome }}</option>{% endfor %}</select></div>
+        </div></div></section></div>
+    </div>
+    <div class="action-group justify-content-end mt-4"><a class="btn btn-light" href="{{ url_for('painel_vinculos') }}">Cancelar</a><button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Salvar permissões</button></div>
+</form>
+{% endblock %}

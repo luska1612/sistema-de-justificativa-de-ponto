@@ -50,7 +50,7 @@
 
                 <!-- Comprovante -->
                 {% if s.comprovante %}
-                <a href="{{ url_for('uploaded_file', filename=s.comprovante) }}" target="_blank"
+                <a href="{{ url_for('uploaded_file', sol_id=s.id) }}" target="_blank"
                    class="small text-primary text-decoration-none d-block mb-3">
                     <i class="bi bi-paperclip me-1"></i>Ver comprovante
                 </a>
@@ -59,6 +59,7 @@
                 <!-- Ações -->
                 <div class="d-flex gap-2 mt-auto">
                     <form method="POST" action="{{ url_for('gestor_aprovar', sol_id=s.id) }}" class="flex-fill">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-success btn-sm w-100">
                             <i class="bi bi-check-lg me-1"></i>Aprovar
                         </button>
@@ -77,6 +78,7 @@
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content border-0 shadow">
                 <form method="POST" action="{{ url_for('gestor_recusar', sol_id=s.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="modal-header border-0 pb-0">
                         <h6 class="modal-title fw-600">Recusar #{{ s.id }}</h6>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

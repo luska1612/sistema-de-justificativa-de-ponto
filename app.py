@@ -11,14 +11,16 @@ from functools import wraps
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    flash, jsonify, send_from_directory, session
+    flash, jsonify, send_from_directory, session, abort
 )
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_login import (
     LoginManager, login_user, logout_user,
     login_required, current_user
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from sqlalchemy.orm import joinedload
 
 from models import (db, Usuario, Solicitacao, Colaborador, TipoJustificativa,
                     SolicitacaoParticipante, Area, Empresa, TipoOcorrencia)
@@ -28,11 +30,20 @@ from models import (db, Usuario, Solicitacao, Colaborador, TipoJustificativa,
 # ──────────────────────────────────────────────
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'chave-secreta-ponto-2026'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ponto.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+if not app.config['SECRET_KEY']:
+    raise RuntimeError('Defina SECRET_KEY no ambiente antes de iniciar o sistema.')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///ponto.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=os.environ.get('SESSION_COOKIE_SECURE', '').lower() == 'true',
+)
+
+csrf = CSRFProtect(app)
 
 EXTENSOES_PERMITIDAS = {'pdf', 'png', 'jpg', 'jpeg'}
 TIPOS_OCORRENCIA = (
@@ -51,6 +62,12 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Faça login para acessar o sistema.'
 login_manager.login_message_category = 'warning'
+
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(error):
+    flash('Sessão expirada ou formulário inválido. Tente novamente.', 'danger')
+    return redirect(request.referrer or url_for('login'))
 
 
 @login_manager.user_loader
@@ -102,6 +119,117 @@ def carregar_cadastros():
             TipoOcorrencia.query.filter_by(ativo=True).order_by(TipoOcorrencia.nome).all())
 
 
+@app.route('/admin/vinculos')
+@login_required
+@perfil_requerido('dp', 'ti')
+def painel_vinculos():
+    return render_template('usuarios.html', usuarios=Usuario.query.options(joinedload(Usuario.area), joinedload(Usuario.empresa), joinedload(Usuario.gestor)).order_by(Usuario.nome).all())
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/permissoes', methods=['GET', 'POST'])
+@login_required
+@perfil_requerido('ti')
+def permissoes_usuario(usuario_id):
+    usuario = db.session.get(Usuario, usuario_id)
+    if not usuario:
+        abort(404)
+    if request.method == 'POST':
+        dados = dados_usuario_validos(request.form, senha_obrigatoria=False)
+        if not dados:
+            flash('Dados inválidos.', 'danger')
+            return redirect(url_for('permissoes_usuario', usuario_id=usuario.id))
+        nome, matricula, email, perfil, senha = dados
+        duplicado = Usuario.query.filter(Usuario.id != usuario.id, (Usuario.matricula == matricula) | (Usuario.email == email)).first()
+        empresa_id = request.form.get('empresa_id', type=int)
+        area_id = request.form.get('area_id', type=int)
+        gestor_id = request.form.get('gestor_id', type=int)
+        empresa = db.session.get(Empresa, empresa_id) if empresa_id else None
+        area = db.session.get(Area, area_id) if area_id else None
+        gestor = db.session.get(Usuario, gestor_id) if gestor_id else None
+        if duplicado or (empresa_id and not empresa) or (area_id and (not area or (empresa and empresa not in area.empresas))) or (gestor and (gestor.id == usuario.id or gestor.perfil != 'gestor' or not gestor.ativo)):
+            flash('Dados ou vínculos inválidos.', 'danger')
+            return redirect(url_for('permissoes_usuario', usuario_id=usuario.id))
+        if usuario.perfil == 'ti' and perfil != 'ti' and Usuario.query.filter_by(perfil='ti', ativo=True).count() < 2:
+            flash('Não é possível remover o último administrador TI ativo.', 'danger')
+            return redirect(url_for('permissoes_usuario', usuario_id=usuario.id))
+        usuario.nome, usuario.matricula, usuario.email, usuario.perfil = nome, matricula, email, perfil
+        usuario.empresa_id, usuario.area_id, usuario.gestor_id = empresa_id, area_id, gestor_id
+        usuario.ativo = request.form.get('ativo') == 'on'
+        if senha:
+            usuario.senha_hash = generate_password_hash(senha)
+        db.session.commit()
+        flash('Usuário e permissões atualizados.', 'success')
+        return redirect(url_for('painel_vinculos'))
+    return render_template('usuario_permissoes.html', usuario=usuario,
+                           areas=Area.query.order_by(Area.nome).all(),
+                           empresas=Empresa.query.filter_by(ativo=True).order_by(Empresa.nome).all(),
+                           gestores=Usuario.query.filter_by(perfil='gestor', ativo=True).order_by(Usuario.nome).all())
+
+
+@app.route('/supervisor-administrativo')
+@login_required
+@perfil_requerido('supervisor_administrativo')
+def painel_supervisor():
+    pendentes = (Solicitacao.query
+                 .filter(Solicitacao.status == 'encaminhado_supervisor')
+                 .filter(Solicitacao.supervisor_id == current_user.id)
+                 .order_by(Solicitacao.criado_em.desc()).all())
+    historico = (Solicitacao.query
+                 .filter(Solicitacao.supervisor_id == current_user.id)
+                 .filter(Solicitacao.status != 'encaminhado_supervisor')
+                 .order_by(Solicitacao.atualizado_em.desc()).limit(50).all())
+    return render_template('supervisor_administrativo.html', pendentes=pendentes, historico=historico)
+
+
+@app.route('/configuracoes')
+@login_required
+@perfil_requerido('dp', 'ti')
+def configuracoes():
+    return render_template('configuracoes.html', areas=Area.query.order_by(Area.nome).all(), empresas=Empresa.query.order_by(Empresa.nome).all(), colaboradores=Colaborador.query.order_by(Colaborador.nome).all(), tipos=TipoJustificativa.query.order_by(TipoJustificativa.nome).all(), tipos_ocorrencia=TipoOcorrencia.query.order_by(TipoOcorrencia.nome).all())
+
+
+@app.route('/organograma')
+@login_required
+@perfil_requerido('dp', 'ti')
+def organograma():
+    empresas = Empresa.query.filter_by(ativo=True).order_by(Empresa.nome).all()
+    empresa_id = request.args.get('empresa_id', type=int)
+    empresa = next((item for item in empresas if item.id == empresa_id), None) if empresa_id else None
+    empresa = empresa or (empresas[0] if empresas else None)
+
+    usuarios = (Usuario.query.filter_by(ativo=True)
+                .options(joinedload(Usuario.empresa), joinedload(Usuario.area), joinedload(Usuario.gestor))
+                .order_by(Usuario.nome).all())
+    usuarios_empresa = [u for u in usuarios if empresa and u.empresa_id == empresa.id]
+
+    areas = {}
+    sem_area = []
+    sem_gestor = []
+    sem_empresa = [u for u in usuarios if u.empresa_id is None]
+    for usuario in usuarios_empresa:
+        if usuario.area is None:
+            sem_area.append(usuario)
+            continue
+        area = areas.setdefault(usuario.area.nome, {'gestores': {}, 'usuarios': []})
+        area['usuarios'].append(usuario)
+        if usuario.gestor is None or usuario.gestor.empresa_id != usuario.empresa_id:
+            sem_gestor.append(usuario)
+        else:
+            area['gestores'].setdefault(usuario.gestor.id, usuario.gestor)
+
+    estrutura = []
+    for nome, dados in sorted(areas.items()):
+        gestores = []
+        for gestor in sorted(dados['gestores'].values(), key=lambda item: item.nome):
+            subordinados = [u for u in dados['usuarios'] if u.gestor_id == gestor.id and u.id != gestor.id]
+            gestores.append({'usuario': gestor, 'subordinados': subordinados})
+        estrutura.append({'nome': nome, 'gestores': gestores, 'usuarios': dados['usuarios']})
+
+    return render_template('organograma.html', empresas=empresas, empresa=empresa,
+                           estrutura=estrutura, sem_area=sem_area,
+                           sem_gestor=sem_gestor, sem_empresa=sem_empresa)
+
+
 # ──────────────────────────────────────────────
 # Rotas de Autenticação
 # ──────────────────────────────────────────────
@@ -134,7 +262,7 @@ def login():
     return render_template('login.html')
 
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 @login_required
 def logout():
     logout_user()
@@ -151,6 +279,8 @@ def logout():
 def dashboard():
     if current_user.perfil == 'ti':
         return redirect(url_for('painel_admin'))
+    if current_user.perfil == 'supervisor_administrativo':
+        return redirect(url_for('painel_supervisor'))
     if current_user.perfil == 'analista':
         return redirect(url_for('painel_analista'))
     elif current_user.perfil == 'gestor':
@@ -194,7 +324,7 @@ def dados_usuario_validos(form, senha_obrigatoria=True):
     email = form.get('email', '').strip().lower()
     perfil = form.get('perfil', '').strip().lower()
     senha = form.get('senha', '')
-    perfis = {'analista', 'gestor', 'dp', 'ti'}
+    perfis = {'analista', 'gestor', 'dp', 'ti', 'supervisor_administrativo'}
     if not nome or not matricula or not email or perfil not in perfis or (senha_obrigatoria and len(senha) < 8):
         return None
     return nome, matricula, email, perfil, senha
@@ -216,6 +346,39 @@ def criar_usuario():
     db.session.commit()
     flash('Usuário criado.', 'success')
     return redirect(url_for('painel_admin'))
+
+
+@app.route('/admin/areas/<int:area_id>', methods=['POST'])
+@login_required
+@perfil_requerido('dp', 'ti')
+def editar_area(area_id):
+    area = db.session.get(Area, area_id)
+    nome = ' '.join(request.form.get('nome', '').split())
+    if not area or not nome or len(nome) > 100:
+        flash('Nome de departamento inválido.', 'danger')
+    elif Area.query.filter(Area.nome == nome, Area.id != area.id).first():
+        flash('Departamento já cadastrado.', 'danger')
+    else:
+        area.nome = nome
+        db.session.commit()
+        flash('Departamento atualizado.', 'success')
+    return redirect(url_for('painel_vinculos'))
+
+
+@app.route('/admin/areas/<int:area_id>/empresas', methods=['POST'])
+@login_required
+@perfil_requerido('dp', 'ti')
+def vincular_area_empresas(area_id):
+    area = db.session.get(Area, area_id)
+    ids = request.form.getlist('empresa_ids', type=int)
+    empresas = Empresa.query.filter(Empresa.id.in_(ids), Empresa.ativo == True).all() if ids else []
+    if not area or len(empresas) != len(set(ids)):
+        flash('Empresas inválidas.', 'danger')
+    else:
+        area.empresas = empresas
+        db.session.commit()
+        flash('Vínculos do departamento atualizados.', 'success')
+    return redirect(url_for('painel_vinculos'))
 
 
 @app.route('/admin/areas', methods=['POST'])
@@ -254,6 +417,22 @@ def vincular_usuario(usuario_id):
         db.session.commit()
         flash('Vínculo atualizado.', 'success')
     return redirect(url_for('painel_admin'))
+
+
+@app.route('/admin/empresas/<int:empresa_id>', methods=['POST'])
+@ti_requerido
+def editar_empresa(empresa_id):
+    empresa = db.session.get(Empresa, empresa_id)
+    nome = ' '.join(request.form.get('nome', '').split())
+    if not empresa or not nome or len(nome) > 120:
+        flash('Nome de empresa inválido.', 'danger')
+    elif Empresa.query.filter(Empresa.nome == nome, Empresa.id != empresa.id).first():
+        flash('Empresa já cadastrada.', 'danger')
+    else:
+        empresa.nome = nome
+        db.session.commit()
+        flash('Empresa atualizada.', 'success')
+    return redirect(url_for('painel_vinculos'))
 
 
 @app.route('/admin/empresas', methods=['POST'])
@@ -425,8 +604,8 @@ def salvar_solicitacao():
     comprovante_nome = None
     arquivo = request.files.get('comprovante')
     if arquivo and arquivo.filename:
-        if extensao_permitida(arquivo.filename):
-            nome_seguro = secure_filename(arquivo.filename)
+        nome_seguro = secure_filename(arquivo.filename)
+        if extensao_permitida(nome_seguro) and nome_seguro and '.' in nome_seguro:
             nome_unico = f"{uuid.uuid4().hex}_{nome_seguro}"
             os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
             arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_unico))
@@ -638,12 +817,15 @@ def painel_dp():
     filtro_data = request.args.get('data', '')
     filtro_colaborador = request.args.get('colaborador', '')
 
+    supervisores = Usuario.query.filter_by(perfil='supervisor_administrativo', ativo=True).order_by(Usuario.nome).all()
     query = Solicitacao.query.join(Usuario, Solicitacao.colaborador_id == Usuario.id)
 
     if filtro_status == 'aprovado_gestor':
         query = query.filter(Solicitacao.status == 'aprovado_gestor')
     elif filtro_status == 'todos':
         pass  # sem filtro
+    elif filtro_status == 'aguardando_supervisor':
+        query = query.filter(Solicitacao.status.in_(['encaminhado_supervisor', 'aprovado_supervisor', 'recusado_supervisor']))
     else:
         query = query.filter(Solicitacao.status == filtro_status)
 
@@ -666,7 +848,8 @@ def painel_dp():
                            filtro_colaborador=filtro_colaborador,
                            colaboradores=Colaborador.query.order_by(Colaborador.nome).all(),
                            tipos=TipoJustificativa.query.order_by(TipoJustificativa.nome).all(),
-                           tipos_ocorrencia=TipoOcorrencia.query.order_by(TipoOcorrencia.nome).all())
+                           tipos_ocorrencia=TipoOcorrencia.query.order_by(TipoOcorrencia.nome).all(),
+                           supervisores=supervisores)
 
 
 @app.route('/cadastros/colaborador', methods=['POST'])
@@ -683,7 +866,7 @@ def cadastrar_colaborador():
         db.session.add(Colaborador(nome=nome, matricula=matricula))
         db.session.commit()
         flash('Colaborador cadastrado.', 'success')
-    return redirect(url_for('painel_dp'))
+    return redirect(url_for('configuracoes'))
 
 
 @app.route('/cadastros/colaborador/<int:colaborador_id>/alternar', methods=['POST'])
@@ -694,12 +877,12 @@ def alternar_colaborador(colaborador_id):
     if colaborador:
         colaborador.ativo = not colaborador.ativo
         db.session.commit()
-    return redirect(url_for('painel_dp'))
+    return redirect(url_for('configuracoes'))
 
 
 @app.route('/cadastros/tipo', methods=['POST'])
 @login_required
-@perfil_requerido('dp')
+@perfil_requerido('dp', 'ti')
 def cadastrar_tipo():
     nome = ' '.join(request.form.get('nome', '').split())
     if not nome or len(nome) > 80:
@@ -710,12 +893,12 @@ def cadastrar_tipo():
         db.session.add(TipoJustificativa(nome=nome))
         db.session.commit()
         flash('Tipo de justificativa cadastrado.', 'success')
-    return redirect(url_for('painel_dp'))
+    return redirect(url_for('configuracoes'))
 
 
 @app.route('/cadastros/ocorrencia', methods=['POST'])
 @login_required
-@perfil_requerido('dp')
+@perfil_requerido('dp', 'ti')
 def cadastrar_ocorrencia():
     nome = ' '.join(request.form.get('nome', '').split())
     if not nome or len(nome) > 80:
@@ -726,29 +909,81 @@ def cadastrar_ocorrencia():
         db.session.add(TipoOcorrencia(nome=nome))
         db.session.commit()
         flash('Ocorrência cadastrada.', 'success')
-    return redirect(url_for('painel_dp'))
+    return redirect(url_for('configuracoes'))
 
 
 @app.route('/cadastros/ocorrencia/<int:tipo_id>/alternar', methods=['POST'])
 @login_required
-@perfil_requerido('dp')
+@perfil_requerido('dp', 'ti')
 def alternar_ocorrencia(tipo_id):
     tipo = db.session.get(TipoOcorrencia, tipo_id)
     if tipo:
         tipo.ativo = not tipo.ativo
         db.session.commit()
-    return redirect(url_for('painel_dp'))
+    return redirect(url_for('configuracoes'))
 
 
 @app.route('/cadastros/tipo/<int:tipo_id>/alternar', methods=['POST'])
 @login_required
-@perfil_requerido('dp')
+@perfil_requerido('dp', 'ti')
 def alternar_tipo(tipo_id):
     tipo = db.session.get(TipoJustificativa, tipo_id)
     if tipo:
         tipo.ativo = not tipo.ativo
         db.session.commit()
+    return redirect(url_for('configuracoes'))
+
+
+@app.route('/dp/encaminhar/<int:sol_id>', methods=['POST'])
+@login_required
+@perfil_requerido('dp')
+def dp_encaminhar_supervisor(sol_id):
+    sol = db.session.get(Solicitacao, sol_id)
+    supervisor_id = request.form.get('supervisor_id', type=int)
+    supervisor = db.session.get(Usuario, supervisor_id) if supervisor_id else None
+    if not sol or sol.status != 'aprovado_gestor' or not supervisor or supervisor.perfil != 'supervisor_administrativo' or not supervisor.ativo:
+        flash('Solicitação ou supervisor inválido.', 'danger')
+        return redirect(url_for('painel_dp'))
+    sol.status = 'encaminhado_supervisor'
+    sol.supervisor_id = supervisor.id
+    sol.supervisor_parecer = 'Encaminhado pelo DP'
+    sol.supervisor_data = datetime.now(timezone.utc)
+    db.session.commit()
+    flash(f'Solicitação #{sol.id} encaminhada ao supervisor.', 'success')
     return redirect(url_for('painel_dp'))
+
+
+@app.route('/supervisor/aprovar/<int:sol_id>', methods=['POST'])
+@login_required
+@perfil_requerido('supervisor_administrativo')
+def supervisor_aprovar(sol_id):
+    sol = db.session.get(Solicitacao, sol_id)
+    if not sol or sol.status != 'encaminhado_supervisor' or sol.supervisor_id != current_user.id:
+        flash('Solicitação não encontrada ou já processada.', 'warning')
+        return redirect(url_for('painel_supervisor'))
+    sol.status = 'aprovado_supervisor'
+    sol.supervisor_parecer = 'Aprovado'
+    sol.supervisor_data = datetime.now(timezone.utc)
+    db.session.commit()
+    flash(f'Solicitação #{sol.id} aprovada.', 'success')
+    return redirect(url_for('painel_supervisor'))
+
+
+@app.route('/supervisor/recusar/<int:sol_id>', methods=['POST'])
+@login_required
+@perfil_requerido('supervisor_administrativo')
+def supervisor_recusar(sol_id):
+    sol = db.session.get(Solicitacao, sol_id)
+    justificativa = request.form.get('justificativa', '').strip()
+    if not sol or sol.status != 'encaminhado_supervisor' or sol.supervisor_id != current_user.id or not justificativa:
+        flash('Solicitação ou justificativa inválida.', 'danger')
+        return redirect(url_for('painel_supervisor'))
+    sol.status = 'recusado_supervisor'
+    sol.supervisor_parecer = justificativa
+    sol.supervisor_data = datetime.now(timezone.utc)
+    db.session.commit()
+    flash(f'Solicitação #{sol.id} recusada.', 'info')
+    return redirect(url_for('painel_supervisor'))
 
 
 @app.route('/dp/aprovar/<int:sol_id>', methods=['POST'])
@@ -756,7 +991,7 @@ def alternar_tipo(tipo_id):
 @perfil_requerido('dp')
 def dp_aprovar(sol_id):
     sol = db.session.get(Solicitacao, sol_id)
-    if not sol or sol.status != 'aprovado_gestor':
+    if not sol or sol.status not in ('aprovado_gestor', 'aprovado_supervisor'):
         flash('Solicitação não encontrada ou não está pronta para aprovação do DP.', 'warning')
         return redirect(url_for('painel_dp'))
 
@@ -775,14 +1010,14 @@ def dp_aprovar(sol_id):
 @perfil_requerido('dp')
 def dp_recusar(sol_id):
     sol = db.session.get(Solicitacao, sol_id)
-    if not sol or sol.status != 'aprovado_gestor':
+    if not sol or sol.status not in ('aprovado_gestor', 'aprovado_supervisor'):
         flash('Solicitação não encontrada ou não está pronta para análise do DP.', 'warning')
         return redirect(url_for('painel_dp'))
 
     justificativa = request.form.get('justificativa', '').strip()
     if not justificativa:
         flash('Informe o motivo da recusa.', 'danger')
-        return redirect(url_for('painel_dp'))
+        return redirect(url_for('configuracoes'))
 
     sol.status = 'recusado_dp'
     sol.dp_id = current_user.id
@@ -791,17 +1026,34 @@ def dp_recusar(sol_id):
     db.session.commit()
 
     flash(f'Solicitação #{sol.id} recusada pelo DP.', 'info')
-    return redirect(url_for('painel_dp'))
+    return redirect(url_for('configuracoes'))
 
 
 # ──────────────────────────────────────────────
 # Rota para visualizar comprovante
 # ──────────────────────────────────────────────
 
-@app.route('/uploads/<filename>')
+@app.route('/uploads/<int:sol_id>')
 @login_required
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+def uploaded_file(sol_id):
+    sol = db.session.get(Solicitacao, sol_id)
+    if not sol or not sol.comprovante:
+        abort(404)
+    if current_user.perfil == 'ti' or sol.colaborador_id == current_user.id:
+        autorizado = True
+    elif current_user.perfil == 'gestor':
+        colaborador = db.session.get(Usuario, sol.colaborador_id)
+        autorizado = colaborador is not None and colaborador.gestor_id == current_user.id
+    elif current_user.perfil == 'supervisor_administrativo':
+        autorizado = sol.supervisor_id == current_user.id
+    else:
+        autorizado = current_user.perfil == 'dp'
+    if not autorizado:
+        abort(404)
+    response = send_from_directory(app.config['UPLOAD_FOLDER'], sol.comprovante)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Content-Disposition'] = 'inline'
+    return response
 
 
 # ──────────────────────────────────────────────
@@ -820,7 +1072,11 @@ def api_contagens():
         return jsonify({'pendentes': pendentes})
 
     elif current_user.perfil == 'dp':
-        pendentes = Solicitacao.query.filter_by(status='aprovado_gestor').count()
+        pendentes = Solicitacao.query.filter(Solicitacao.status.in_(['aprovado_gestor', 'aprovado_supervisor', 'recusado_supervisor'])).count()
+        return jsonify({'pendentes': pendentes})
+
+    elif current_user.perfil == 'supervisor_administrativo':
+        pendentes = Solicitacao.query.filter_by(status='encaminhado_supervisor', supervisor_id=current_user.id).count()
         return jsonify({'pendentes': pendentes})
 
     return jsonify({'pendentes': 0})
@@ -836,4 +1092,8 @@ with app.app_context():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(
+        host=os.environ.get('FLASK_HOST', '127.0.0.1'),
+        port=int(os.environ.get('FLASK_PORT', '5000')),
+        debug=os.environ.get('FLASK_DEBUG', '').lower() == 'true',
+    )

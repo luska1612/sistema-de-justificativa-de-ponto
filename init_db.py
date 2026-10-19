@@ -58,6 +58,15 @@ def criar_dados_iniciais():
         if 'tipo_justificativa' not in colunas:
             db.session.execute(db.text('ALTER TABLE solicitacoes ADD COLUMN tipo_justificativa VARCHAR(80)'))
             db.session.commit()
+        # Colunas do fluxo opcional de aprovação pelo supervisor administrativo.
+        for nome_coluna, definicao in (
+            ('supervisor_id', 'INTEGER'),
+            ('supervisor_parecer', 'TEXT'),
+            ('supervisor_data', 'DATETIME'),
+        ):
+            if nome_coluna not in colunas:
+                db.session.execute(db.text(f'ALTER TABLE solicitacoes ADD COLUMN {nome_coluna} {definicao}'))
+        db.session.commit()
         tipos_iniciais = ['Sem registro de entrada', 'Sem registro de saída', 'Atraso', 'Saída antecipada', 'Horas Extras', 'Horário excedido', 'Outros']
         for nome_tipo in tipos_iniciais:
             if not TipoJustificativa.query.filter_by(nome=nome_tipo).first():
