@@ -129,14 +129,31 @@ class Solicitacao(db.Model):
             return self.participantes
         return self.colaboradores or ([self.colaborador] if self.colaborador else [])
 
+    STATUS_LABELS = {
+        'pendente': 'Pendente',
+        'aprovado_gestor': 'Aprovado pelo Gestor',
+        'recusado_gestor': 'Recusado pelo Gestor',
+        'encaminhado_supervisor': 'Aguardando supervisor administrativo',
+        'aprovado_supervisor': 'Aprovado pelo supervisor',
+        'recusado_supervisor': 'Recusado pelo supervisor',
+        'aprovado_dp': 'Concluído',
+        'recusado_dp': 'Recusado pelo DP',
+    }
+    STATUS_COLORS = {
+        'pendente': 'warning',
+        'aprovado_gestor': 'info',
+        'recusado_gestor': 'danger',
+        'encaminhado_supervisor': 'warning',
+        'aprovado_supervisor': 'info',
+        'recusado_supervisor': 'danger',
+        'aprovado_dp': 'success',
+        'recusado_dp': 'danger',
+    }
+
     @property
     def status_label(self):
-        return {'pendente': 'Pendente', 'aprovado_gestor': 'Aprovado pelo Gestor',
-                'recusado_gestor': 'Recusado pelo Gestor', 'aprovado_dp': 'Concluído',
-                'recusado_dp': 'Recusado pelo DP', 'encaminhado_supervisor': 'Aguardando supervisor administrativo', 'aprovado_supervisor': 'Aprovado pelo supervisor', 'recusado_supervisor': 'Recusado pelo supervisor'}.get(self.status, self.status)
+        return self.STATUS_LABELS.get(self.status, self.status)
 
     @property
     def status_cor(self):
-        return {'pendente': 'warning', 'aprovado_gestor': 'info',
-                'recusado_gestor': 'danger', 'aprovado_dp': 'success',
-                'recusado_dp': 'danger', 'encaminhado_supervisor': 'warning', 'aprovado_supervisor': 'info', 'recusado_supervisor': 'danger'}.get(self.status, 'secondary')
+        return self.STATUS_COLORS.get(self.status, 'secondary')

@@ -46,6 +46,10 @@ app.config.update(
 csrf = CSRFProtect(app)
 
 EXTENSOES_PERMITIDAS = {'pdf', 'png', 'jpg', 'jpeg'}
+PERFIS = ('analista', 'gestor', 'dp', 'ti', 'supervisor_administrativo')
+PERFIS_SOLICITANTES = ('analista', 'gestor', 'dp', 'ti')
+STATUS_SUPERVISOR = ('encaminhado_supervisor', 'aprovado_supervisor', 'recusado_supervisor')
+
 TIPOS_OCORRENCIA = (
     'Saída antecipada',
     'Sem registro de entrada',
@@ -324,7 +328,7 @@ def dados_usuario_validos(form, senha_obrigatoria=True):
     email = form.get('email', '').strip().lower()
     perfil = form.get('perfil', '').strip().lower()
     senha = form.get('senha', '')
-    perfis = {'analista', 'gestor', 'dp', 'ti', 'supervisor_administrativo'}
+    perfis = set(PERFIS)
     if not nome or not matricula or not email or perfil not in perfis or (senha_obrigatoria and len(senha) < 8):
         return None
     return nome, matricula, email, perfil, senha
@@ -511,7 +515,6 @@ def alternar_usuario(usuario_id):
 # PAINEL DO ANALISTA
 # ──────────────────────────────────────────────
 
-PERFIS_SOLICITANTES = ('analista', 'gestor', 'dp', 'ti')
 
 
 @app.route('/solicitacoes/nova', methods=['GET', 'POST'])
@@ -825,7 +828,7 @@ def painel_dp():
     elif filtro_status == 'todos':
         pass  # sem filtro
     elif filtro_status == 'aguardando_supervisor':
-        query = query.filter(Solicitacao.status.in_(['encaminhado_supervisor', 'aprovado_supervisor', 'recusado_supervisor']))
+        query = query.filter(Solicitacao.status.in_(STATUS_SUPERVISOR))
     else:
         query = query.filter(Solicitacao.status == filtro_status)
 
@@ -1017,7 +1020,7 @@ def dp_recusar(sol_id):
     justificativa = request.form.get('justificativa', '').strip()
     if not justificativa:
         flash('Informe o motivo da recusa.', 'danger')
-        return redirect(url_for('configuracoes'))
+        return redirect(url_for('painel_dp'))
 
     sol.status = 'recusado_dp'
     sol.dp_id = current_user.id
@@ -1026,7 +1029,7 @@ def dp_recusar(sol_id):
     db.session.commit()
 
     flash(f'Solicitação #{sol.id} recusada pelo DP.', 'info')
-    return redirect(url_for('configuracoes'))
+    return redirect(url_for('painel_dp'))
 
 
 # ──────────────────────────────────────────────
