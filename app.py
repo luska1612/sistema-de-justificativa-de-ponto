@@ -4,6 +4,7 @@ Sistema Web de Justificativas de Ponto — Backend Flask
 
 import os
 import re
+import tempfile
 import uuid
 import unicodedata
 from datetime import datetime, timezone
@@ -36,7 +37,10 @@ if not app.config['SECRET_KEY']:
     raise RuntimeError('Defina SECRET_KEY no ambiente antes de iniciar o sistema.')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///ponto.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+app.config['UPLOAD_FOLDER'] = os.environ.get(
+    'UPLOAD_FOLDER',
+    os.path.join(tempfile.gettempdir(), 'ponto-uploads')
+)
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
