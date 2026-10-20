@@ -1125,6 +1125,21 @@ def api_contagens():
 with app.app_context():
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     db.create_all()
+    if os.environ.get('SEED_ADMIN_ON_START', '').lower() == 'true':
+        senha = os.environ.get('ADMIN_INITIAL_PASSWORD')
+        if senha:
+            admin = Usuario.query.filter_by(matricula='TI001').first()
+            if admin:
+                admin.ativo = True
+                admin.perfil = 'ti'
+                admin.senha_hash = generate_password_hash(senha)
+            else:
+                db.session.add(Usuario(
+                    matricula='TI001', nome='Administrador TI',
+                    email='ti@empresa.local', perfil='ti',
+                    senha_hash=generate_password_hash(senha),
+                ))
+            db.session.commit()
 
 
 if __name__ == '__main__':
