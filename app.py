@@ -8,11 +8,14 @@ import tempfile
 import uuid
 import unicodedata
 from datetime import datetime, timezone
+from io import BytesIO
+
+from openpyxl import Workbook
 from functools import wraps
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    flash, jsonify, send_from_directory, session, abort
+    flash, jsonify, send_from_directory, session, abort, send_file
 )
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_login import (
@@ -313,6 +316,55 @@ def ti_requerido(f):
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return wrapper
+
+
+@app.route('/admin/consultas-sql', methods=['GET', 'POST'])
+@ti_requerido
+def consultas_sql():
+    sql = ''
+    colunas = []
+    resultados = []
+    erro = None
+    if request.method == 'POST':
+        sql = request.form.get('sql', '').strip()
+        instrucoes = sql.rstrip(';').strip()
+        primeiro = instrucoes.split(None, 1)[0].lower() if instrucoes else ''
+        if not instrucoes or primeiro not in {'select', 'with'} or ';' in instrucoes:
+            erro = 'Informe uma única consulta SELECT somente para leitura.'
+        else:
+            try:
+                resultado = db.session.execute(db.text(instrucoes))
+                colunas = list(resultado.keys())
+                resultados = [list(linha) for linha in resultado.fetchmany(200)]
+            except Exception:
+                db.session.rollback()
+                erro = 'Não foi possível executar a consulta.'
+    return render_template('sql_admin.html', sql=sql, colunas=colunas, resultados=resultados, erro=erro)
+
+
+@app.route('/admin/consultas-sql/exportar', methods=['POST'])
+@ti_requerido
+def exportar_consulta_sql():
+    sql = request.form.get('sql', '').strip().rstrip(';').strip()
+    primeiro = sql.split(None, 1)[0].lower() if sql else ''
+    if not sql or primeiro not in {'select', 'with'} or ';' in sql:
+        flash('Informe uma única consulta SELECT válida.', 'danger')
+        return redirect(url_for('consultas_sql'))
+    try:
+        resultado = db.session.execute(db.text(sql))
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(list(resultado.keys()))
+        for linha in resultado.fetchmany(200):
+            sheet.append(list(linha))
+        arquivo = BytesIO()
+        workbook.save(arquivo)
+        arquivo.seek(0)
+        return send_file(arquivo, as_attachment=True, download_name='consulta_sql.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception:
+        db.session.rollback()
+        flash('Não foi possível exportar a consulta.', 'danger')
+        return redirect(url_for('consultas_sql'))
 
 
 @app.route('/admin')
@@ -843,6 +895,44 @@ def gestor_recusar(sol_id):
 # PAINEL DO DP
 # ──────────────────────────────────────────────
 
+@app.route('/dp/exportar')
+@login_required
+@perfil_requerido('dp')
+def exportar_justificativas():
+    status = request.args.get('status', 'aprovado_gestor')
+    data_inicio = request.args.get('data_inicio', '')
+    data_fim = request.args.get('data_fim', '')
+    colaborador = request.args.get('colaborador', '')
+    query = Solicitacao.query.join(Usuario, Solicitacao.colaborador_id == Usuario.id)
+    if status == 'aprovado_gestor':
+        query = query.filter(Solicitacao.status == status)
+    elif status == 'aguardando_supervisor':
+        query = query.filter(Solicitacao.status.in_(STATUS_SUPERVISOR))
+    elif status != 'todos':
+        query = query.filter(Solicitacao.status == status)
+    try:
+        if data_inicio:
+            query = query.filter(Solicitacao.data_ocorrencia >= datetime.strptime(data_inicio, '%Y-%m-%d').date())
+        if data_fim:
+            query = query.filter(Solicitacao.data_ocorrencia <= datetime.strptime(data_fim, '%Y-%m-%d').date())
+    except ValueError:
+        flash('Período inválido.', 'danger')
+        return redirect(url_for('painel_dp'))
+    if colaborador:
+        query = query.filter(Usuario.nome.ilike(f'%{colaborador}%'))
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(['ID', 'Solicitado por', 'Matrícula', 'Data', 'Tipo', 'Justificativa', 'Status'])
+    for item in query.order_by(Solicitacao.criado_em.desc()).all():
+        sheet.append([item.id, item.colaborador.nome, item.colaborador.matricula,
+                      item.data_ocorrencia.strftime('%d/%m/%Y'), item.tipo_ocorrencia,
+                      item.tipo_justificativa or '', item.status_label])
+    arquivo = BytesIO()
+    workbook.save(arquivo)
+    arquivo.seek(0)
+    return send_file(arquivo, as_attachment=True, download_name='justificativas.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
 @app.route('/dp')
 @login_required
 @perfil_requerido('dp')
@@ -851,6 +941,8 @@ def painel_dp():
                            .order_by(Solicitacao.criado_em.desc()).all())
     filtro_status = request.args.get('status', 'aprovado_gestor')
     filtro_data = request.args.get('data', '')
+    filtro_data_inicio = request.args.get('data_inicio', '')
+    filtro_data_fim = request.args.get('data_fim', '')
     filtro_colaborador = request.args.get('colaborador', '')
 
     supervisores = Usuario.query.filter_by(perfil='supervisor_administrativo', ativo=True).order_by(Usuario.nome).all()
@@ -871,6 +963,17 @@ def painel_dp():
             query = query.filter(Solicitacao.data_ocorrencia == data_filtro)
         except ValueError:
             pass
+    else:
+        if filtro_data_inicio:
+            try:
+                query = query.filter(Solicitacao.data_ocorrencia >= datetime.strptime(filtro_data_inicio, '%Y-%m-%d').date())
+            except ValueError:
+                pass
+        if filtro_data_fim:
+            try:
+                query = query.filter(Solicitacao.data_ocorrencia <= datetime.strptime(filtro_data_fim, '%Y-%m-%d').date())
+            except ValueError:
+                pass
 
     if filtro_colaborador:
         query = query.filter(Usuario.nome.ilike(f'%{filtro_colaborador}%'))
@@ -881,6 +984,8 @@ def painel_dp():
                            minhas_solicitacoes=minhas_solicitacoes,
                            filtro_status=filtro_status,
                            filtro_data=filtro_data,
+                           filtro_data_inicio=filtro_data_inicio,
+                           filtro_data_fim=filtro_data_fim,
                            filtro_colaborador=filtro_colaborador,
                            colaboradores=Colaborador.query.order_by(Colaborador.nome).all(),
                            tipos=TipoJustificativa.query.order_by(TipoJustificativa.nome).all(),

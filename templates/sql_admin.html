@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Consultas SQL{% endblock %}
+{% block content %}
+<div class="card card-clean">
+  <div class="card-body">
+    <h5>Consultas SQL</h5>
+    <p class="text-muted small">Somente consultas SELECT. Resultado limitado a 200 linhas.</p>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <textarea class="form-control font-monospace mb-3" name="sql" rows="6" placeholder="SELECT * FROM usuarios LIMIT 10" required>{{ sql }}</textarea>
+      <button class="btn btn-primary">Executar consulta</button>
+    </form>
+    {% if colunas %}<form method="POST" action="{{ url_for('exportar_consulta_sql') }}" class="mt-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="sql" value="{{ sql }}"><button class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel</button></form>{% endif %}
+    {% if erro %}<div class="alert alert-danger mt-3">{{ erro }}</div>{% endif %}
+    {% if colunas %}
+    <div class="table-responsive mt-4"><table class="table table-sm table-striped">
+      <thead><tr>{% for coluna in colunas %}<th>{{ coluna }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for linha in resultados %}<tr>{% for valor in linha %}<td>{{ valor if valor is not none else '—' }}</td>{% endfor %}</tr>{% else %}<tr><td colspan="{{ colunas|length }}">Nenhum resultado.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

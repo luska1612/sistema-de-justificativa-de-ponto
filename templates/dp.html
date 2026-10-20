@@ -32,8 +32,12 @@
                 </select>
             </div>
             <div class="col-sm-3">
-                <label class="form-label small fw-500 mb-1">Data da Ocorrência</label>
-                <input type="date" class="form-control form-control-sm" name="data" value="{{ filtro_data }}">
+                <label class="form-label small fw-500 mb-1">Data inicial</label>
+                <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ filtro_data_inicio }}">
+            </div>
+            <div class="col-sm-3">
+                <label class="form-label small fw-500 mb-1">Data final</label>
+                <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ filtro_data_fim }}">
             </div>
             <div class="col-sm-4">
                 <label class="form-label small fw-500 mb-1">Colaborador</label>
@@ -44,6 +48,7 @@
                 <button type="submit" class="btn btn-primary btn-sm w-100">
                     <i class="bi bi-funnel me-1"></i>Filtrar
                 </button>
+                <a class="btn btn-outline-success btn-sm w-100 mt-2" href="{{ url_for('exportar_justificativas', status=filtro_status, data_inicio=filtro_data_inicio, data_fim=filtro_data_fim, colaborador=filtro_colaborador) }}"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
             </div>
         </form>
     </div>
