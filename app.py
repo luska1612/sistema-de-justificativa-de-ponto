@@ -1232,6 +1232,9 @@ with app.app_context():
     db.create_all()
     # Atualiza bases existentes; create_all não adiciona colunas novas.
     if db.engine.dialect.name == 'postgresql':
+        db.session.execute(db.text(
+            'ALTER TABLE usuarios ALTER COLUMN perfil TYPE VARCHAR(40)'
+        ))
         for coluna, tipo in (
             ('supervisor_id', 'INTEGER'),
             ('supervisor_parecer', 'TEXT'),

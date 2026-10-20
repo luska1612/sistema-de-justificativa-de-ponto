@@ -50,7 +50,7 @@ class Usuario(UserMixin, db.Model):
     nome = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     senha_hash = db.Column(db.String(256), nullable=False)
-    perfil = db.Column(db.String(20), nullable=False)
+    perfil = db.Column(db.String(40), nullable=False)
     gestor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
     area_id = db.Column(db.Integer, db.ForeignKey('areas.id'), nullable=True)
     empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id'), nullable=True)
