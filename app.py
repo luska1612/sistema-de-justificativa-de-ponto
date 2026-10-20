@@ -1230,6 +1230,17 @@ def api_contagens():
 with app.app_context():
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     db.create_all()
+    # Atualiza bases existentes; create_all não adiciona colunas novas.
+    if db.engine.dialect.name == 'postgresql':
+        for coluna, tipo in (
+            ('supervisor_id', 'INTEGER'),
+            ('supervisor_parecer', 'TEXT'),
+            ('supervisor_data', 'TIMESTAMP'),
+        ):
+            db.session.execute(db.text(
+                f'ALTER TABLE solicitacoes ADD COLUMN IF NOT EXISTS {coluna} {tipo}'
+            ))
+        db.session.commit()
     if os.environ.get('SEED_ADMIN_ON_START', '').lower() == 'true':
         senha = os.environ.get('ADMIN_INITIAL_PASSWORD')
         if senha:
