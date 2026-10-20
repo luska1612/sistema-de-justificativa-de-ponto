@@ -33,13 +33,28 @@
                 <td><span class="badge bg-{{ 'success' if usuario.ativo else 'secondary' }}-subtle text-{{ 'success' if usuario.ativo else 'secondary' }}">{{ 'Ativo' if usuario.ativo else 'Inativo' }}</span></td>
                 <td class="text-end pe-3">
                     <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editar{{ usuario.id }}"><i class="bi bi-pencil"></i></button>
-                    {% if usuario.id != current_user.id %}<form class="d-inline" method="POST" action="{{ url_for('alternar_usuario', usuario_id=usuario.id) }}"><button class="btn btn-sm btn-outline-warning">{{ 'Desativar' if usuario.ativo else 'Ativar' }}</button></form>{% endif %}
+                    {% if usuario.id != current_user.id %}<form class="d-inline" method="POST" action="{{ url_for('alternar_usuario', usuario_id=usuario.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-warning rounded">{{ 'Desativar' if usuario.ativo else 'Ativar' }}</button></form><form class="d-inline ms-1" method="POST" action="{{ url_for('excluir_usuario', usuario_id=usuario.id) }}" onsubmit="return confirm('Excluir este usuário permanentemente? Esta ação não pode ser desfeita.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger rounded">Excluir</button></form>{% endif %}
                 </td>
             </tr>
             {% endfor %}
             </tbody>
         </table>
     </div>
+    {% if usuarios_inativos %}
+    <div class="card-footer bg-transparent border-0">
+        <button class="btn btn-link btn-sm text-start px-0" type="button" data-bs-toggle="collapse" data-bs-target="#usuarios-inativos">
+            <i class="bi bi-archive me-1"></i>Ver usuários desativados ({{ usuarios_inativos|length }})
+        </button>
+        <div class="collapse" id="usuarios-inativos">
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+                <tbody>{% for usuario in usuarios_inativos %}<tr>
+                    <td>{{ usuario.nome }}</td><td>{{ usuario.email }}</td><td>{{ usuario.perfil|capitalize }}</td>
+                    <td class="text-end"><form class="d-inline" method="POST" action="{{ url_for('alternar_usuario', usuario_id=usuario.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-success">Ativar</button></form><form class="d-inline" method="POST" action="{{ url_for('excluir_usuario', usuario_id=usuario.id) }}" onsubmit="return confirm('Excluir este usuário permanentemente? Esta ação não pode ser desfeita.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger">Excluir</button></form></td>
+                </tr>{% endfor %}</tbody>
+            </table></div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <div class="row g-3 mt-4">
@@ -85,8 +100,8 @@
     <div class="card card-clean admin-fixed-card">
         <div class="card-body">
             <h6>Empresas</h6>
-            <form method="POST"
-                    ><input type="hidden" name="csrf_token" value="{{ csrf_token() }}" action="{{ url_for('criar_empresa') }}" class="input-group input-group-sm mb-3">
+            <form method="POST" action="{{ url_for('criar_empresa') }}" class="input-group input-group-sm mb-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input class="form-control" name="nome" placeholder="Nome da empresa" required>
                 <button class="btn btn-primary">Adicionar</button>
             </form>
@@ -95,8 +110,8 @@
                 {% for empresa in empresas if empresa.ativo %}
                 <div class="d-flex justify-content-between border-top py-1 small">
                     <span>{{ empresa.nome }}</span>
-                    <form method="POST"
-                    ><input type="hidden" name="csrf_token" value="{{ csrf_token() }}" action="{{ url_for('alternar_empresa', empresa_id=empresa.id) }}">
+                    <form method="POST" action="{{ url_for('alternar_empresa', empresa_id=empresa.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-link btn-sm">Desativar</button>
                     </form>
                 </div>
@@ -110,8 +125,8 @@
                 {% for empresa in empresas_inativas %}
                 <div class="d-flex justify-content-between border-top py-1 small">
                     <span>{{ empresa.nome }}</span>
-                    <form method="POST"
-                    ><input type="hidden" name="csrf_token" value="{{ csrf_token() }}" action="{{ url_for('alternar_empresa', empresa_id=empresa.id) }}">
+                    <form method="POST" action="{{ url_for('alternar_empresa', empresa_id=empresa.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-link btn-sm">Ativar</button>
                     </form>
                 </div>

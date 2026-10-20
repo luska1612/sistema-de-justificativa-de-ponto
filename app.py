@@ -20,6 +20,7 @@ from flask_login import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from models import (db, Usuario, Solicitacao, Colaborador, TipoJustificativa,
@@ -315,8 +316,10 @@ def ti_requerido(f):
 def painel_admin():
     minhas_solicitacoes = (Solicitacao.query.filter_by(colaborador_id=current_user.id)
                            .order_by(Solicitacao.criado_em.desc()).all())
+    usuarios = Usuario.query.order_by(Usuario.nome).all()
     return render_template('admin.html', minhas_solicitacoes=minhas_solicitacoes,
-                           usuarios=Usuario.query.order_by(Usuario.nome).all(),
+                           usuarios=[usuario for usuario in usuarios if usuario.ativo],
+                           usuarios_inativos=[usuario for usuario in usuarios if not usuario.ativo],
                            areas=Area.query.order_by(Area.nome).all(),
                            gestores=Usuario.query.filter_by(perfil='gestor', ativo=True).order_by(Usuario.nome).all(),
                            empresas=Empresa.query.order_by(Empresa.nome).all())
@@ -508,6 +511,32 @@ def alternar_usuario(usuario_id):
     if usuario and usuario.id != current_user.id:
         usuario.ativo = not usuario.ativo
         db.session.commit()
+    return redirect(url_for('painel_admin'))
+
+
+@app.route('/admin/usuarios/<int:usuario_id>/excluir', methods=['POST'])
+@ti_requerido
+def excluir_usuario(usuario_id):
+    usuario = db.session.get(Usuario, usuario_id)
+    if not usuario:
+        flash('Usuário não encontrado.', 'danger')
+    elif usuario.id == current_user.id:
+        flash('Não é possível excluir o próprio usuário.', 'danger')
+    elif usuario.subordinados or Solicitacao.query.filter(
+        (Solicitacao.colaborador_id == usuario.id) |
+        (Solicitacao.gestor_id == usuario.id) |
+        (Solicitacao.dp_id == usuario.id) |
+        (Solicitacao.supervisor_id == usuario.id)
+    ).first():
+        flash('Usuário possui histórico ou subordinados. Desative-o em vez de excluir.', 'warning')
+    else:
+        try:
+            db.session.delete(usuario)
+            db.session.commit()
+            flash('Usuário excluído permanentemente.', 'success')
+        except IntegrityError:
+            db.session.rollback()
+            flash('Não foi possível excluir o usuário por causa de vínculos existentes.', 'danger')
     return redirect(url_for('painel_admin'))
 
 

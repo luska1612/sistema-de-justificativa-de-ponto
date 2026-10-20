@@ -55,6 +55,15 @@ if not exist "static\css\bootstrap.min.css" (
   exit /b 1
 )
 
+set "FLASK_HOST=0.0.0.0"
+set "FLASK_PORT=5000"
 set "FLASK_DEBUG=false"
 set "SESSION_COOKIE_SECURE=false"
+
+for /f "tokens=2 delims=:" %%A in ('ipconfig ^| findstr /R /C:"IPv4.*:"') do set "LOCAL_IP=%%A"
+set "LOCAL_IP=%LOCAL_IP: =%"
+echo.
+echo Acesso local: http://127.0.0.1:%FLASK_PORT%
+echo Acesso na rede: http://%LOCAL_IP%:%FLASK_PORT%
+echo.
 "%PYTHON%" app.py
