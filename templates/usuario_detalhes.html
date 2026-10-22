@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Detalhes do usuário{% endblock %}
+{% block content %}
+<header class="page-header"><div><h1 class="h4">{{ usuario.nome }}</h1><p>Informações completas do usuário.</p></div><a class="btn btn-light" href="{{ url_for('painel_admin_usuarios') }}">Voltar</a></header>
+<div class="row g-3">
+<div class="col-lg-6"><div class="card card-clean section-card"><div class="card-header"><h2 class="h6 mb-0">Dados cadastrais</h2></div><div class="card-body"><dl class="row mb-0"><dt class="col-sm-5">Nome</dt><dd class="col-sm-7">{{ usuario.nome }}</dd><dt class="col-sm-5">Matrícula</dt><dd class="col-sm-7">{{ usuario.matricula }}</dd><dt class="col-sm-5">E-mail</dt><dd class="col-sm-7">{{ usuario.email }}</dd><dt class="col-sm-5">Perfil</dt><dd class="col-sm-7">{{ usuario.perfil|capitalize }}</dd><dt class="col-sm-5">Status</dt><dd class="col-sm-7">{{ 'Ativo' if usuario.ativo else 'Inativo' }}</dd></dl></div></div></div>
+<div class="col-lg-6"><div class="card card-clean section-card"><div class="card-header"><h2 class="h6 mb-0">Vínculos</h2></div><div class="card-body"><dl class="row mb-0"><dt class="col-sm-5">Empresa</dt><dd class="col-sm-7">{{ usuario.empresa.nome if usuario.empresa else '—' }}</dd><dt class="col-sm-5">Área</dt><dd class="col-sm-7">{{ usuario.area.nome if usuario.area else '—' }}</dd><dt class="col-sm-5">Gestor direto</dt><dd class="col-sm-7">{{ usuario.gestor.nome if usuario.gestor else '—' }}</dd></dl></div></div></div>
+<div class="col-12"><div class="card card-clean section-card"><div class="card-header"><h2 class="h6 mb-0">Permissões adicionais</h2></div><div class="card-body">{% if permissoes %}<div class="d-flex flex-wrap gap-2">{% for permissao in permissoes %}<span class="badge bg-primary-subtle text-primary">{{ permissoes_disponiveis.get(permissao, (permissao, ''))[0] }}</span>{% endfor %}</div>{% else %}<span class="text-muted">Nenhuma permissão adicional.</span>{% endif %}</div></div></div>
+</div>
+<div class="action-group justify-content-end mt-4"><a class="btn btn-primary" href="{{ url_for('permissoes_usuario', usuario_id=usuario.id) }}"><i class="bi bi-pencil me-1"></i>Editar usuário</a></div>
+{% endblock %}

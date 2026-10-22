@@ -3,6 +3,18 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    const layout = document.querySelector('.app-layout');
+    const toggle = document.querySelector('#sidebar-toggle');
+    if (layout && toggle) {
+        const key = 'ponto-sidebar-collapsed';
+        layout.classList.add('sidebar-collapsed');
+        toggle.addEventListener('click', () => {
+            layout.classList.toggle('sidebar-open');
+        });
+        document.querySelectorAll('.app-sidebar a').forEach(link => link.addEventListener('click', () => {
+            layout.classList.remove('sidebar-open');
+        }));
+    }
 
     document.querySelectorAll('input[name="horario_entrada"], input[name="horario_saida"]').forEach(input => {
         input.addEventListener('input', event => {
@@ -62,27 +74,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const lista = document.querySelector('#colaboradores-lista');
-    const multiplos = document.querySelector('#temMultiplos');
     const adicionar = document.querySelector('#adicionar-colaborador');
-    if (lista && multiplos && adicionar) {
+    if (lista && adicionar) {
         const atualizar = () => {
             const linhas = lista.querySelectorAll('.colaborador-linha');
             linhas.forEach((linha, i) => {
-                linha.querySelector('.remover-colaborador').disabled = i === 0;
+                const remover = linha.querySelector('.remover-colaborador');
+                if (remover) remover.disabled = i === 0;
             });
-            adicionar.classList.toggle('d-none', !multiplos.checked);
         };
-        multiplos.addEventListener('change', atualizar);
-        adicionar.addEventListener('click', () => {
-            const linha = lista.querySelector('.colaborador-linha').cloneNode(true);
-            linha.querySelectorAll('input').forEach(input => { input.value = ''; });
-            linha.querySelector('.remover-colaborador').disabled = false;
+        adicionar.addEventListener('click', event => {
+            event.preventDefault();
+            const original = lista.querySelector('.colaborador-linha');
+            if (!original) return;
+            const linha = original.cloneNode(true);
+            linha.querySelectorAll('input').forEach(input => input.value = '');
             lista.appendChild(linha);
             atualizar();
+            linha.querySelector('input')?.focus();
         });
         lista.addEventListener('click', event => {
-            if (event.target.closest('.remover-colaborador')) {
-                event.target.closest('.colaborador-linha').remove();
+            const remover = event.target.closest('.remover-colaborador');
+            if (remover) {
+                event.preventDefault();
+                remover.closest('.colaborador-linha')?.remove();
                 atualizar();
             }
         });

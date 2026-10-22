@@ -77,6 +77,28 @@ a:hover { color: var(--color-primary-hover); }
 .empty-state { padding: 3rem 1rem; text-align: center; color: var(--color-text-muted); }
 .empty-state i { display: block; font-size: 2rem; margin-bottom: .75rem; opacity: .55; }
 
+/* ─── Sidebar global retrátil ─── */
+.app-layout { display:grid; grid-template-columns:240px 1fr; grid-template-rows:58px 1fr auto; min-height:100vh; }
+.topbar { grid-column:1/-1; display:flex; align-items:center; gap:1rem; padding:.65rem 1.25rem; background:var(--color-card); border-bottom:1px solid var(--color-border); z-index:10; }
+.sidebar-toggle { border:0; background:transparent; font-size:1.35rem; color:var(--color-text); }
+.topbar .navbar-brand { color:var(--color-text); text-decoration:none; font-weight:600; }
+.topbar-user { margin-left:auto; font-size:.85rem; color:var(--color-text-muted); }
+.topbar-user small { margin-left:.3rem; }
+.app-sidebar { grid-row:2/4; display:flex; flex-direction:column; gap:.25rem; padding:1rem .75rem; background:var(--color-card); border-right:1px solid var(--color-border); transition:width .3s ease; overflow:hidden; }
+.app-sidebar a { display:flex; align-items:center; gap:.75rem; padding:.7rem .75rem; color:var(--color-text-muted); text-decoration:none; border-radius:7px; white-space:nowrap; }
+.app-sidebar a:hover { color:var(--color-primary); background:#f1f4f8; }
+.app-sidebar i { width:1.2rem; text-align:center; font-size:1.05rem; }
+.app-content { grid-column:2; min-width:0; }
+.app-footer { grid-column:2; }
+.app-layout.sidebar-collapsed { grid-template-columns:0 1fr; }
+.app-sidebar { position:fixed; top:58px; bottom:0; left:0; width:240px; transform:translateX(-100%); z-index:20; transition:transform .3s ease; }
+.app-layout.sidebar-open .app-sidebar { transform:translateX(0); }
+.app-layout.sidebar-collapsed .app-sidebar { width:240px; transform:translateX(-100%); }
+.app-layout.sidebar-collapsed.sidebar-open .app-sidebar { transform:translateX(0); }
+.app-layout.sidebar-collapsed .app-sidebar span { display:inline; }
+.app-layout.sidebar-collapsed .app-sidebar a { justify-content:flex-start; }
+@media (max-width:767px) { .app-layout, .app-layout.sidebar-collapsed { display:block; } .topbar { position:sticky; top:0; } .app-sidebar { position:fixed; top:58px; bottom:0; left:0; width:240px; transform:translateX(-100%); z-index:20; transition:transform .3s ease; } .app-layout.sidebar-open .app-sidebar { transform:translateX(0); } .app-content, .app-footer { margin-left:0; } .topbar-user { display:none; } }
+
 /* ─── Navbar ─── */
 .navbar {
     background: var(--color-card);
@@ -141,6 +163,18 @@ a:focus-visible,
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
 }
+
+/* ─── Layout do painel administrativo ─── */
+.admin-shell { display:flex; gap:1.5rem; align-items:stretch; }
+.admin-sidebar { width:220px; flex:0 0 220px; min-height:620px; display:flex; flex-direction:column; gap:.25rem; padding:1rem; background:var(--color-card); border:1px solid var(--color-border); border-radius:var(--radius); box-shadow:var(--shadow-sm); }
+.admin-sidebar-title { display:flex; align-items:center; gap:.6rem; font-size:1.05rem; padding:.5rem; margin-bottom:1.25rem; }
+.admin-sidebar-title i { color:var(--color-primary); }
+.admin-sidebar-label { color:var(--color-text-muted); font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:0 .65rem .4rem; }
+.admin-sidebar a { display:flex; align-items:center; gap:.65rem; padding:.65rem; border-radius:7px; color:var(--color-text-muted); text-decoration:none; }
+.admin-sidebar a:hover, .admin-sidebar a.active { color:var(--color-primary); background:#f1f4f8; }
+.admin-sidebar-spacer { flex:1; }
+.admin-sidebar-user { border-top:1px solid var(--color-border); padding:.85rem .5rem .25rem; font-size:.8rem; display:flex; gap:.5rem; align-items:center; }
+.admin-main { min-width:0; flex:1; }
 
 /* ─── Cartões administrativos ─── */
 .admin-fixed-card {
@@ -383,6 +417,10 @@ footer {
     .badge-status {
         font-size: 0.68rem;
     }
+
+    .admin-shell { flex-direction:column; }
+    .admin-sidebar { width:100%; min-height:0; }
+    .admin-sidebar-spacer { display:none; }
 
     /* Card counters */
     .card-clean .fs-3 {

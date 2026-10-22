@@ -4,10 +4,12 @@ Sistema Web de Justificativas de Ponto — Backend Flask
 
 import os
 import re
+import json
 import tempfile
 import uuid
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from sqlalchemy import func
 from io import BytesIO
 
 from openpyxl import Workbook
@@ -27,7 +29,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
-from models import (db, Usuario, Solicitacao, Colaborador, TipoJustificativa,
+from models import (db, Usuario, Permissao, UsuarioPermissao, Solicitacao, Colaborador, TipoJustificativa,
                     SolicitacaoParticipante, Area, Empresa, TipoOcorrencia)
 
 # ──────────────────────────────────────────────
@@ -53,7 +55,7 @@ app.config.update(
 
 csrf = CSRFProtect(app)
 
-EXTENSOES_PERMITIDAS = {'pdf', 'png', 'jpg', 'jpeg'}
+EXTENSOES_PERMITIDAS = {'pdf', 'png', 'jpg', 'jpeg', 'xls', 'xlsx'}
 PERFIS = ('analista', 'gestor', 'dp', 'ti', 'supervisor_administrativo')
 PERFIS_SOLICITANTES = ('analista', 'gestor', 'dp', 'ti')
 STATUS_SUPERVISOR = ('encaminhado_supervisor', 'aprovado_supervisor', 'recusado_supervisor')
@@ -87,9 +89,17 @@ def load_user(user_id):
     return db.session.get(Usuario, int(user_id))
 
 
+@app.template_filter('from_json')
+def from_json(value):
+    try:
+        return json.loads(value or '[]')
+    except (TypeError, json.JSONDecodeError):
+        return [value] if value else []
+
+
 @app.context_processor
 def inject_now():
-    """Disponibiliza now() nos templates para o ano do footer."""
+    """Disponibiliza now() e permissões do usuário nos templates."""
     return {'now': datetime.now}
 
 
@@ -112,6 +122,19 @@ def matricula_valida(matricula):
     return matricula.isdigit() and 1 <= len(matricula) <= 20
 
 
+def permissao_requerida(chave):
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def wrapper(*args, **kwargs):
+            if not current_user.tem_permissao(chave):
+                flash('Acesso não autorizado.', 'danger')
+                return redirect(request.referrer or url_for('dashboard'))
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 def perfil_requerido(*perfis):
     """Decorator para restringir acesso por perfil."""
     def decorator(f):
@@ -119,7 +142,7 @@ def perfil_requerido(*perfis):
         def wrapper(*args, **kwargs):
             if current_user.perfil not in perfis:
                 flash('Acesso não autorizado.', 'danger')
-                return redirect(url_for('dashboard'))
+                return redirect(request.referrer or url_for('dashboard'))
             return f(*args, **kwargs)
         return wrapper
     return decorator
@@ -135,7 +158,20 @@ def carregar_cadastros():
 @login_required
 @perfil_requerido('dp', 'ti')
 def painel_vinculos():
-    return render_template('usuarios.html', usuarios=Usuario.query.options(joinedload(Usuario.area), joinedload(Usuario.empresa), joinedload(Usuario.gestor)).order_by(Usuario.nome).all())
+    return redirect(url_for('painel_admin_usuarios'))
+
+
+@app.route('/admin/usuarios/<int:usuario_id>')
+@login_required
+@perfil_requerido('ti')
+def detalhes_usuario(usuario_id):
+    usuario = db.session.get(Usuario, usuario_id)
+    if not usuario:
+        abort(404)
+    permissoes = {item.permissao for item in UsuarioPermissao.query.filter_by(usuario_id=usuario.id).all()}
+    return render_template('usuario_detalhes.html', usuario=usuario,
+                           permissoes=permissoes,
+                           permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
 
 
 @app.route('/admin/usuarios/<int:usuario_id>/permissoes', methods=['GET', 'POST'])
@@ -286,6 +322,44 @@ def logout():
 # Dashboard — redireciona por perfil
 # ──────────────────────────────────────────────
 
+def tamanho_uploads():
+    total = 0
+    for raiz, _, arquivos in os.walk(app.config['UPLOAD_FOLDER']):
+        for nome in arquivos:
+            try:
+                total += os.path.getsize(os.path.join(raiz, nome))
+            except OSError:
+                pass
+    return total
+
+
+@app.route('/dashboard/solicitacoes')
+@login_required
+def dashboard_solicitacoes():
+    agora = datetime.now(timezone.utc)
+    inicio_padrao = agora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    inicio = request.args.get('inicio', '').strip()
+    fim = request.args.get('fim', '').strip()
+    try:
+        inicio = datetime.strptime(inicio, '%Y-%m-%d').replace(tzinfo=timezone.utc) if inicio else inicio_padrao
+        fim_data = datetime.strptime(fim, '%Y-%m-%d').replace(tzinfo=timezone.utc) + timedelta(days=1) if fim else agora + timedelta(days=1)
+    except ValueError:
+        inicio, fim_data = inicio_padrao, agora + timedelta(days=1)
+    consulta = Solicitacao.query.filter(Solicitacao.criado_em >= inicio, Solicitacao.criado_em < fim_data)
+    if current_user.perfil == 'gestor':
+        consulta = consulta.join(Usuario, Solicitacao.colaborador_id == Usuario.id).filter(Usuario.gestor_id == current_user.id)
+    elif current_user.perfil == 'analista':
+        consulta = consulta.filter(Solicitacao.colaborador_id == current_user.id)
+    solicitacoes = consulta.order_by(Solicitacao.atualizado_em.desc()).all()
+    base_mes = Solicitacao.query.filter(Solicitacao.criado_em >= inicio, Solicitacao.criado_em < fim_data)
+    por_dia = [[str(dia), total] for dia, total in db.session.query(func.date(Solicitacao.criado_em), func.count(Solicitacao.id)).filter(Solicitacao.criado_em >= inicio, Solicitacao.criado_em < fim_data).group_by(func.date(Solicitacao.criado_em)).all()]
+    por_tipo = [[tipo or 'Não informado', total] for tipo, total in base_mes.with_entities(Solicitacao.tipo_ocorrencia, func.count(Solicitacao.id)).group_by(Solicitacao.tipo_ocorrencia).all()]
+    return render_template('dashboard_solicitacoes.html', solicitacoes=solicitacoes[:10], por_dia=por_dia, por_tipo=por_tipo, inicio=inicio.date().isoformat(), fim=(fim_data - timedelta(days=1)).date().isoformat(),
+                           total=consulta.count(), pendentes=consulta.filter_by(status='pendente').count(),
+                           aprovadas=consulta.filter(Solicitacao.status.in_(['aprovado_dp', 'aprovado_supervisor'])).count(),
+                           recusadas=consulta.filter(Solicitacao.status.like('recusado%')).count())
+
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -313,7 +387,7 @@ def ti_requerido(f):
     def wrapper(*args, **kwargs):
         if current_user.perfil != 'ti':
             flash('Acesso não autorizado.', 'danger')
-            return redirect(url_for('dashboard'))
+            return redirect(request.referrer or url_for('dashboard'))
         return f(*args, **kwargs)
     return wrapper
 
@@ -368,8 +442,44 @@ def exportar_consulta_sql():
 
 
 @app.route('/admin')
-@ti_requerido
+@login_required
 def painel_admin():
+    permissoes = {item.permissao for item in UsuarioPermissao.query.filter_by(usuario_id=current_user.id).all()}
+    if current_user.perfil != 'ti' and 'admin_dashboard' not in permissoes:
+        flash('Acesso não autorizado.', 'danger')
+        return redirect(url_for('dashboard'))
+    agora = datetime.now(timezone.utc)
+    hoje = agora.date()
+    semana = agora - timedelta(days=7)
+    estatisticas = {
+        'usuarios_total': Usuario.query.count(),
+        'usuarios_ativos': Usuario.query.filter_by(ativo=True).count(),
+        'usuarios_inativos': Usuario.query.filter_by(ativo=False).count(),
+        'empresas_ativas': Empresa.query.filter_by(ativo=True).count(),
+        'areas_ativas': Area.query.filter_by(ativo=True).count(),
+        'solicitacoes_total': Solicitacao.query.count(),
+        'solicitacoes_pendentes': Solicitacao.query.filter_by(status='pendente').count(),
+        'solicitacoes_hoje': Solicitacao.query.filter(func.date(Solicitacao.criado_em) == hoje).count(),
+        'solicitacoes_semana': Solicitacao.query.filter(Solicitacao.criado_em >= semana).count(),
+        'storage_bytes': tamanho_uploads(),
+        'sem_gestor': Usuario.query.filter_by(ativo=True, gestor_id=None).count(),
+        'sem_area': Usuario.query.filter_by(ativo=True, area_id=None).count(),
+    }
+    return render_template('admin_dashboard.html', estatisticas=estatisticas)
+
+
+PERMISSOES_DISPONIVEIS = {
+    'view_organograma': ('Ver organograma', 'estrutura'), 'manage_empresas': ('Gerenciar empresas', 'estrutura'), 'manage_areas': ('Gerenciar áreas', 'estrutura'),
+    'manage_users': ('Gerenciar usuários', 'usuarios'), 'reset_passwords': ('Resetar senhas', 'usuarios'), 'manage_permissions': ('Gerenciar permissões', 'usuarios'),
+    'create_solicitacao': ('Criar solicitação', 'solicitacoes'), 'approve_as_gestor': ('Aprovar como gestor', 'solicitacoes'), 'approve_as_dp': ('Aprovar como DP', 'solicitacoes'),
+    'view_audit_logs': ('Ver auditoria', 'relatorios'), 'export_reports': ('Exportar relatórios', 'relatorios'),
+    'admin_dashboard': ('Ver dashboard administrativo', 'relatorios'),
+}
+
+
+@app.route('/admin/usuarios')
+@ti_requerido
+def painel_admin_usuarios():
     minhas_solicitacoes = (Solicitacao.query.filter_by(colaborador_id=current_user.id)
                            .order_by(Solicitacao.criado_em.desc()).all())
     usuarios = Usuario.query.order_by(Usuario.nome).all()
@@ -378,7 +488,31 @@ def painel_admin():
                            usuarios_inativos=[usuario for usuario in usuarios if not usuario.ativo],
                            areas=Area.query.order_by(Area.nome).all(),
                            gestores=Usuario.query.filter_by(perfil='gestor', ativo=True).order_by(Usuario.nome).all(),
-                           empresas=Empresa.query.order_by(Empresa.nome).all())
+                           empresas=Empresa.query.order_by(Empresa.nome).all(),
+                           tipos=TipoJustificativa.query.order_by(TipoJustificativa.nome).all(),
+                           tipos_ocorrencia=TipoOcorrencia.query.order_by(TipoOcorrencia.nome).all(),
+                           permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
+
+
+@app.route('/admin/permissoes/<int:usuario_id>', methods=['GET', 'POST'])
+@ti_requerido
+def editar_permissoes(usuario_id):
+    usuario = db.session.get(Usuario, usuario_id)
+    if not usuario:
+        abort(404)
+    if request.method == 'POST':
+        selecionadas = set(request.form.getlist('permissoes')) & set(PERMISSOES_DISPONIVEIS)
+        UsuarioPermissao.query.filter_by(usuario_id=usuario.id).delete()
+        db.session.add_all(UsuarioPermissao(usuario_id=usuario.id, permissao=item) for item in selecionadas)
+        db.session.commit()
+        flash('Permissões atualizadas.', 'success')
+        return redirect(url_for('painel_admin_usuarios'))
+    permissoes = {item.permissao for item in UsuarioPermissao.query.filter_by(usuario_id=usuario.id).all()}
+    return render_template('usuario_permissoes.html', usuario=usuario, permissoes=permissoes,
+                           permissoes_disponiveis=PERMISSOES_DISPONIVEIS,
+                           areas=Area.query.order_by(Area.nome).all(),
+                           empresas=Empresa.query.filter_by(ativo=True).order_by(Empresa.nome).all(),
+                           gestores=Usuario.query.filter_by(perfil='gestor', ativo=True).order_by(Usuario.nome).all())
 
 
 def dados_usuario_validos(form, senha_obrigatoria=True):
@@ -399,16 +533,16 @@ def criar_usuario():
     dados = dados_usuario_validos(request.form)
     if not dados:
         flash('Preencha os dados corretamente. A senha deve ter pelo menos 8 caracteres.', 'danger')
-        return redirect(url_for('painel_admin'))
+        return redirect(url_for('painel_admin_usuarios'))
     nome, matricula, email, perfil, senha = dados
     if Usuario.query.filter((Usuario.matricula == matricula) | (Usuario.email == email)).first():
         flash('Matrícula ou e-mail já cadastrado.', 'danger')
-        return redirect(url_for('painel_admin'))
+        return redirect(url_for('painel_admin_usuarios'))
     db.session.add(Usuario(nome=nome, matricula=matricula, email=email,
                            perfil=perfil, senha_hash=generate_password_hash(senha)))
     db.session.commit()
     flash('Usuário criado.', 'success')
-    return redirect(url_for('painel_admin'))
+    return redirect(url_for('painel_admin_usuarios'))
 
 
 @app.route('/admin/areas/<int:area_id>', methods=['POST'])
@@ -688,19 +822,18 @@ def salvar_solicitacao():
         flash('Entrada e saída não podem ser iguais.', 'danger')
         return redirect(url_for('dashboard'))
 
-    # Upload de comprovante
-    comprovante_nome = None
-    arquivo = request.files.get('comprovante')
-    if arquivo and arquivo.filename:
+    anexos = []
+    for arquivo in request.files.getlist('comprovantes'):
+        if not arquivo or not arquivo.filename:
+            continue
         nome_seguro = secure_filename(arquivo.filename)
-        if extensao_permitida(nome_seguro) and nome_seguro and '.' in nome_seguro:
-            nome_unico = f"{uuid.uuid4().hex}_{nome_seguro}"
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-            arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_unico))
-            comprovante_nome = nome_unico
-        else:
-            flash('Formato de arquivo não permitido. Use PDF, PNG ou JPG.', 'danger')
+        if not (extensao_permitida(nome_seguro) and nome_seguro and '.' in nome_seguro):
+            flash('Formato não permitido. Use PDF, PNG, JPG ou Excel.', 'danger')
             return redirect(url_for('dashboard'))
+        nome_unico = f"{uuid.uuid4().hex}_{nome_seguro}"
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_unico))
+        anexos.append(nome_unico)
 
     solicitacao = Solicitacao(
         colaborador_id=current_user.id,
@@ -710,7 +843,7 @@ def salvar_solicitacao():
         horario_entrada=entrada or None,
         horario_saida=saida or None,
         motivo=motivo,
-        comprovante=comprovante_nome,
+        comprovante=json.dumps(anexos),
     )
     db.session.add(solicitacao)
     db.session.flush()
@@ -777,16 +910,27 @@ def editar_solicitacao(sol_id):
             return redirect(url_for('editar_solicitacao', sol_id=sol_id))
         vistos.add(matricula)
         participantes.append((nome, matricula))
-    arquivo = request.files.get('comprovante')
-    if arquivo and arquivo.filename:
-        if not extensao_permitida(arquivo.filename):
-            flash('Formato de arquivo não permitido. Use PDF, PNG ou JPG.', 'danger')
-            return redirect(url_for('editar_solicitacao', sol_id=sol_id))
+    anexos = json.loads(solicitacao.comprovante or '[]')
+    remover = set(request.form.getlist('remover_anexos'))
+    for nome in remover:
+        if nome in anexos:
+            try:
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], nome))
+            except OSError:
+                pass
+    anexos = [nome for nome in anexos if nome not in remover]
+    for arquivo in request.files.getlist('comprovantes'):
+        if not arquivo or not arquivo.filename:
+            continue
         nome_seguro = secure_filename(arquivo.filename)
-        comprovante = f"{uuid.uuid4().hex}_{nome_seguro}"
+        if not extensao_permitida(nome_seguro):
+            flash('Formato não permitido. Use PDF, PNG, JPG ou Excel.', 'danger')
+            return redirect(url_for('editar_solicitacao', sol_id=sol_id))
+        nome_unico = f"{uuid.uuid4().hex}_{nome_seguro}"
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], comprovante))
-        solicitacao.comprovante = comprovante
+        arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_unico))
+        anexos.append(nome_unico)
+    solicitacao.comprovante = json.dumps(anexos)
     solicitacao.data_ocorrencia = data_ocorrencia
     solicitacao.tipo_ocorrencia = tipo
     solicitacao.tipo_justificativa = tipo_justificativa
@@ -830,7 +974,18 @@ def painel_gestor():
                  .limit(50)
                  .all())
 
+    equipe = Usuario.query.filter_by(gestor_id=current_user.id, ativo=True).all()
+    equipe_ids = [usuario.id for usuario in equipe]
+    equipe_solicitacoes = Solicitacao.query.filter(Solicitacao.colaborador_id.in_(equipe_ids)).all() if equipe_ids else []
+    estatisticas = {
+        'membros': len(equipe),
+        'total': len(equipe_solicitacoes),
+        'pendentes': sum(s.status == 'pendente' for s in equipe_solicitacoes),
+        'concluidas': sum(s.status in {'aprovado_dp', 'aprovado_supervisor'} for s in equipe_solicitacoes),
+        'recusadas': sum(s.status.startswith('recusado') for s in equipe_solicitacoes),
+    }
     return render_template('gestor.html', pendentes=pendentes, historico=historico,
+                           estatisticas=estatisticas,
                            minhas_solicitacoes=minhas_solicitacoes,
                            colaboradores=Colaborador.query.order_by(Colaborador.nome).all(),
                            tipos=TipoJustificativa.query.order_by(TipoJustificativa.nome).all(),

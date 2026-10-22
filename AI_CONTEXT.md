@@ -92,7 +92,7 @@ Os perfis existentes são:
 - `dp`: analisa solicitações aprovadas pelo gestor e mantém cadastros operacionais;
 - `ti`: administra usuários, áreas, empresas e vínculos.
 
-A função `perfil_requerido()` restringe rotas por perfil. A função `ti_requerido()` restringe operações exclusivas da TI.
+A função `perfil_requerido()` restringe rotas por perfil. A função `ti_requerido()` restringe operações exclusivas da TI. Em acessos sem permissão, esses decorators retornam para `request.referrer` quando disponível, mantendo o usuário na página anterior; sem referer, usam o dashboard como fallback.
 
 ## Modelos de dados
 
@@ -194,7 +194,7 @@ Participante ou colaborador envolvido na ocorrência. Armazena nome e matrícula
 
 ### TI
 
-- `GET /admin`: painel administrativo;
+- `GET /admin`: painel administrativo, sem os cards de status do sistema e armazenamento de comprovantes;
 - rotas `/admin/usuarios`, `/admin/areas`, `/admin/empresas`: gerenciam cadastros e vínculos.
 
 ## Regras para futuras alterações

@@ -2,6 +2,7 @@
 {% block title %}Administração de Usuários{% endblock %}
 
 {% block content %}
+<section class="admin-main col-12">
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h5 class="fw-600 mb-1">Administração de Usuários</h5>
@@ -15,15 +16,31 @@
     </div>
 </div>
 
-<div class="card card-clean mb-4">
+<div class="row g-2 mb-4">
+    <div class="col-6 col-lg-3"><div class="card card-clean p-3"><small class="text-muted">Usuários ativos</small><strong class="fs-4">{{ usuarios|length }}</strong></div></div>
+    <div class="col-6 col-lg-3"><div class="card card-clean p-3"><small class="text-muted">Áreas</small><strong class="fs-4">{{ areas|selectattr('ativo')|list|length }}</strong></div></div>
+    <div class="col-6 col-lg-3"><div class="card card-clean p-3"><small class="text-muted">Empresas</small><strong class="fs-4">{{ empresas|selectattr('ativo')|list|length }}</strong></div></div>
+    <div class="col-6 col-lg-3"><div class="card card-clean p-3"><small class="text-muted">Usuários inativos</small><strong class="fs-4">{{ usuarios_inativos|length }}</strong></div></div>
+</div>
+
+<div class="admin-user-toolbar card card-clean mb-3"><div class="card-body"><div class="row g-2"><div class="col-lg-4"><input class="form-control" id="admin-user-search" placeholder="Buscar nome, e-mail ou matrícula"></div><div class="col-lg-2"><select class="form-select" id="admin-company-filter"><option value="">Todas as empresas</option>{% for empresa in empresas if empresa.ativo %}<option value="{{ empresa.id }}">{{ empresa.nome }}</option>{% endfor %}</select></div><div class="col-lg-2"><select class="form-select" id="admin-profile-filter"><option value="">Todos os perfis</option>{% for perfil in ['analista','gestor','dp','ti'] %}<option value="{{ perfil }}">{{ perfil|capitalize }}</option>{% endfor %}</select></div><div class="col-lg-2"><select class="form-select" id="admin-status-filter"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></div><div class="col-lg-2"><button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#novoUsuario"><i class="bi bi-person-plus me-1"></i>Novo usuário</button></div></div></div></div>
+<div class="alert alert-warning py-2" id="admin-link-alerts">Vínculos pendentes: {{ usuarios|selectattr('gestor_id', 'none')|list|length }} sem gestor · {{ usuarios|selectattr('area_id', 'none')|list|length }} sem área.</div>
+<ul class="nav nav-tabs mb-4" id="admin-tabs" hidden>
+    <li class="nav-item"><a class="nav-link active" href="#usuarios" data-tab="usuarios">Usuários</a></li>
+    <li class="nav-item"><a class="nav-link" href="#estrutura" data-tab="estrutura">Estrutura</a></li>
+    <li class="nav-item"><a class="nav-link" href="#vinculos" data-tab="vinculos">Vínculos</a></li>
+    <li class="nav-item"><a class="nav-link" href="#regras" data-tab="regras">Regras</a></li>
+</ul>
+
+<div id="usuarios" class="card card-clean mb-4 admin-tab-content">
     <div class="card-body"><h6>Minhas solicitações</h6><div class="table-responsive"><table class="table table-sm align-middle mb-0"><tbody>{% for s in minhas_solicitacoes %}<tr><td>#{{ s.id }}</td><td>{{ s.data_ocorrencia.strftime('%d/%m/%Y') }}</td><td><span class="badge bg-{{ s.status_cor }}-subtle text-{{ s.status_cor }}">{{ s.status_label }}</span></td><td class="text-end">{% if s.status == 'pendente' %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('editar_solicitacao', sol_id=s.id) }}">Editar</a>{% endif %}</td></tr>{% else %}<tr><td class="text-muted">Nenhuma solicitação própria.</td></tr>{% endfor %}</tbody></table></div></div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead><tr><th class="ps-3">Nome</th><th>Matrícula</th><th>E-mail</th><th>Perfil</th><th>Área</th><th>Empresa</th><th>Gestor</th><th>Status</th><th class="text-end pe-3">Ações</th></tr></thead>
             <tbody>
             {% for usuario in usuarios %}
-            <tr>
-                <td class="ps-3 fw-500">{{ usuario.nome }}</td>
+            <tr data-admin-user="{{ usuario.nome|lower }} {{ usuario.email|lower }} {{ usuario.matricula }}" data-admin-company="{{ usuario.empresa_id or '' }}" data-admin-profile="{{ usuario.perfil }}" data-admin-status="{{ 'ativo' if usuario.ativo else 'inativo' }}">
+                <td class="ps-3 fw-500"><a class="text-decoration-none" href="{{ url_for('detalhes_usuario', usuario_id=usuario.id) }}">{{ usuario.nome }}</a><div class="small text-muted">{{ usuario.email }}</div></td>
                 <td>{{ usuario.matricula }}</td>
                 <td>{{ usuario.email }}</td>
                 <td><span class="badge bg-secondary-subtle text-secondary">{{ usuario.perfil|capitalize }}</span></td>
@@ -32,7 +49,7 @@
                 <td>{{ usuario.gestor.nome if usuario.gestor else '—' }}</td>
                 <td><span class="badge bg-{{ 'success' if usuario.ativo else 'secondary' }}-subtle text-{{ 'success' if usuario.ativo else 'secondary' }}">{{ 'Ativo' if usuario.ativo else 'Inativo' }}</span></td>
                 <td class="text-end pe-3">
-                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editar{{ usuario.id }}"><i class="bi bi-pencil"></i></button>
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('permissoes_usuario', usuario_id=usuario.id) }}" title="Editar usuário"><i class="bi bi-pencil"></i></a>
                     {% if usuario.id != current_user.id %}<form class="d-inline" method="POST" action="{{ url_for('alternar_usuario', usuario_id=usuario.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-warning rounded">{{ 'Desativar' if usuario.ativo else 'Ativar' }}</button></form><form class="d-inline ms-1" method="POST" action="{{ url_for('excluir_usuario', usuario_id=usuario.id) }}" onsubmit="return confirm('Excluir este usuário permanentemente? Esta ação não pode ser desfeita.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger rounded">Excluir</button></form>{% endif %}
                 </td>
             </tr>
@@ -57,7 +74,7 @@
     {% endif %}
 </div>
 
-<div class="row g-3 mt-4">
+<div id="estrutura" class="row g-3 mt-4 admin-tab-content" hidden>
 <div class="col-md-5">
     <div class="card card-clean admin-fixed-card mb-3">
         <div class="card-body">
@@ -95,6 +112,17 @@
                 {% endfor %}
             </div>
             {% endif %}
+            <h6 class="mt-3">Vincular departamentos às empresas</h6>
+            {% for area in areas if area.ativo %}
+            <form method="POST" action="{{ url_for('vincular_area_empresas', area_id=area.id) }}" class="border-top py-2">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="small fw-500 mb-1">{{ area.nome }}</div>
+                {% for empresa in empresas if empresa.ativo %}
+                <label class="form-check form-check-inline small"><input class="form-check-input" type="checkbox" name="empresa_ids" value="{{ empresa.id }}" {% if empresa in area.empresas %}checked{% endif %}>{{ empresa.nome }}</label>
+                {% endfor %}
+                <button class="btn btn-sm btn-outline-success mt-1">Salvar</button>
+            </form>
+            {% endfor %}
         </div>
     </div>
     <div class="card card-clean admin-fixed-card">
@@ -136,8 +164,16 @@
         </div>
     </div>
 </div>
-<div class="col-md-7"><div class="card card-clean"><div class="card-body"><h6>Vincular usuário a área e gestor</h6><form method="POST" action="{{ url_for('vincular_usuario', usuario_id=0) }}" id="vinculo-form">
+</div>
+
+<div id="vinculos" class="admin-tab-content" hidden><div class="card card-clean"><div class="card-body"><h6>Vincular usuário a área e gestor</h6><form method="POST" action="{{ url_for('vincular_usuario', usuario_id=0) }}" id="vinculo-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select class="form-select form-select-sm mb-2" id="vinculo-usuario" required><option value="">Selecione o usuário</option>{% for usuario in usuarios %}<option value="{{ usuario.id }}">{{ usuario.nome }} ({{ usuario.perfil }})</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="area_id"><option value="">Sem área</option>{% for area in areas if area.ativo %}<option value="{{ area.id }}">{{ area.nome }}</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="gestor_id"><option value="">Sem gestor</option>{% for gestor in gestores %}<option value="{{ gestor.id }}">{{ gestor.nome }}</option>{% endfor %}</select><select class="form-select form-select-sm mb-2" name="empresa_id"><option value="">Sem empresa</option>{% for empresa in empresas if empresa.ativo %}<option value="{{ empresa.id }}">{{ empresa.nome }}</option>{% endfor %}</select><button class="btn btn-primary btn-sm">Salvar vínculo</button></form></div></div></div>
+
+<div id="regras" class="admin-tab-content" hidden>
+    <div class="row g-3">
+        <div class="col-lg-6"><div class="card card-clean"><div class="card-body"><h6>Tipos de ocorrência</h6><form method="POST" action="{{ url_for('cadastrar_ocorrencia') }}" class="input-group mb-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input class="form-control" name="nome" maxlength="80" required><button class="btn btn-primary">Adicionar</button></form>{% for item in tipos_ocorrencia if item.ativo %}<div class="d-flex justify-content-between border-top py-1 small">{{ item.nome }}<form method="POST" action="{{ url_for('alternar_ocorrencia', tipo_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-link btn-sm">Desativar</button></form></div>{% endfor %}</div></div></div>
+        <div class="col-lg-6"><div class="card card-clean"><div class="card-body"><h6>Tipos de justificativa</h6><form method="POST" action="{{ url_for('cadastrar_tipo') }}" class="input-group mb-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input class="form-control" name="nome" maxlength="80" required><button class="btn btn-primary">Adicionar</button></form>{% for item in tipos if item.ativo %}<div class="d-flex justify-content-between border-top py-1 small">{{ item.nome }}<form method="POST" action="{{ url_for('alternar_tipo', tipo_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-link btn-sm">Desativar</button></form></div>{% endfor %}</div></div></div>
+    </div>
 </div>
 
 <script>document.getElementById('vinculo-usuario').addEventListener('change', function () { document.getElementById('vinculo-form').action = '/admin/usuarios/' + this.value + '/vinculo'; });</script>
@@ -162,6 +198,24 @@
 <div class="modal-body"><input class="form-control mb-2" name="nome" value="{{ usuario.nome }}" required><input class="form-control mb-2" name="matricula" value="{{ usuario.matricula }}" required><input class="form-control mb-2" type="email" name="email" value="{{ usuario.email }}" required><select class="form-select mb-2" name="perfil" required>{% for perfil in ['analista','gestor','dp','ti','supervisor_administrativo'] %}<option value="{{ perfil }}" {% if usuario.perfil == perfil %}selected{% endif %}>{{ perfil|capitalize }}</option>{% endfor %}</select><input class="form-control" type="password" name="senha" placeholder="Nova senha (opcional)" minlength="8"></div><div class="modal-footer border-0"><button class="btn btn-primary">Salvar alterações</button></div>
 </form></div></div></div>
 {% endfor %}
+</section>
+</div>
 {% endblock %}
 
-{% block scripts %}{% endblock %}
+{% block scripts %}<script>
+const userFilters = ['admin-user-search','admin-company-filter','admin-profile-filter','admin-status-filter'].map(id => document.getElementById(id));
+userFilters.forEach(input => input?.addEventListener('input', () => {
+    const [search, company, profile, status] = userFilters.map(item => item.value.toLowerCase());
+    document.querySelectorAll('#usuarios tr[data-admin-user]').forEach(row => row.hidden = !(row.dataset.adminUser.includes(search) && (!company || row.dataset.adminCompany === company) && (!profile || row.dataset.adminProfile === profile) && (!status || row.dataset.adminStatus === status)));
+}));
+
+document.querySelectorAll('.admin-sidebar [data-tab]').forEach(tab => tab.addEventListener('click', event => {
+    event.preventDefault();
+    const alvo = event.currentTarget.dataset.tab;
+    document.querySelectorAll('.admin-sidebar [data-tab]').forEach(item => item.classList.toggle('active', item === event.currentTarget));
+    document.querySelectorAll('.admin-tab-content').forEach(section => {
+        section.hidden = section.id !== alvo;
+    });
+    document.getElementById(alvo)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}));
+</script>{% endblock %}

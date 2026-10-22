@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Permissões de usuário{% endblock %}
 {% block content %}
+{% if permissoes_disponiveis is defined %}
+<div class="card card-clean mb-3"><div class="card-body"><h5>Permissões individuais — {{ usuario.nome }}</h5><p class="text-muted small">O perfil continua sendo a permissão padrão. Marque acessos adicionais.</p><form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="row g-2">{% for chave, dados in permissoes_disponiveis.items() %}<div class="col-md-6 col-lg-4"><label class="form-check border rounded p-2"><input class="form-check-input" type="checkbox" name="permissoes" value="{{ chave }}" {% if chave in permissoes %}checked{% endif %}> {{ dados[0] }} <small class="text-muted">({{ dados[1] }})</small></label></div>{% endfor %}</div><button class="btn btn-primary mt-3">Salvar permissões</button><a class="btn btn-light mt-3 ms-2" href="{{ url_for('painel_admin_usuarios') }}">Cancelar</a></form></div></div>
+{% else %}
 <header class="page-header">
     <div><h1 class="h4">Permissões de {{ usuario.nome }}</h1><p>Configure acesso, status e vínculos organizacionais.</p></div>
-    <a class="btn btn-light" href="{{ url_for('painel_vinculos') }}"><i class="bi bi-arrow-left me-1"></i>Voltar</a>
+    <a class="btn btn-light" href="{{ url_for('painel_admin_usuarios') }}"><i class="bi bi-arrow-left me-1"></i>Voltar</a>
 </header>
 <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -18,6 +21,7 @@
             <label class="form-label" for="perfil">Perfil de acesso</label><select id="perfil" class="form-select mb-3" name="perfil">{% for p in ['analista','gestor','dp','ti','supervisor_administrativo'] %}<option value="{{ p }}" {% if usuario.perfil == p %}selected{% endif %}>{{ p|capitalize }}</option>{% endfor %}</select>
             <div class="form-check form-switch mb-3"><input class="form-check-input" id="ativo" type="checkbox" name="ativo" {% if usuario.ativo %}checked{% endif %}><label class="form-check-label" for="ativo">Usuário ativo</label></div>
             <div class="alert alert-light border small mb-0"><strong>Escopo dos perfis</strong><br><b>TI:</b> usuários e configurações.<br><b>DP:</b> solicitações e cadastros operacionais.<br><b>Gestor:</b> solicitações da equipe.<br><b>Analista:</b> próprias solicitações.</div>
+            <a class="btn btn-outline-primary btn-sm mt-3" href="{{ url_for('editar_permissoes', usuario_id=usuario.id) }}"><i class="bi bi-sliders me-1"></i>Mais opções de permissões</a>
         </div></section></div>
         <div class="col-12"><section class="card card-clean section-card"><div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-diagram-3 me-2 text-primary"></i>Vínculos organizacionais</h2></div><div class="card-body"><div class="row g-3">
             <div class="col-md-4"><label class="form-label" for="empresa_id">Empresa</label><select id="empresa_id" class="form-select" name="empresa_id"><option value="">Sem empresa</option>{% for e in empresas %}<option value="{{ e.id }}" {% if usuario.empresa_id == e.id %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}</select></div>
@@ -25,6 +29,7 @@
             <div class="col-md-4"><label class="form-label" for="gestor_id">Gestor</label><select id="gestor_id" class="form-select" name="gestor_id"><option value="">Sem gestor</option>{% for g in gestores if g.id != usuario.id %}<option value="{{ g.id }}" {% if usuario.gestor_id == g.id %}selected{% endif %}>{{ g.nome }}</option>{% endfor %}</select></div>
         </div></div></section></div>
     </div>
-    <div class="action-group justify-content-end mt-4"><a class="btn btn-light" href="{{ url_for('painel_vinculos') }}">Cancelar</a><button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Salvar permissões</button></div>
+    <div class="action-group justify-content-end mt-4"><a class="btn btn-light" href="{{ url_for('painel_admin_usuarios') }}">Cancelar</a><button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Salvar permissões</button></div>
 </form>
+{% endif %}
 {% endblock %}

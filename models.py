@@ -62,6 +62,32 @@ class Usuario(UserMixin, db.Model):
     solicitacoes = db.relationship('Solicitacao', backref='colaborador',
                                    foreign_keys='Solicitacao.colaborador_id', lazy='dynamic')
 
+    def tem_permissao(self, chave):
+        if self.perfil == 'ti':
+            return True
+        return UsuarioPermissao.query.filter_by(usuario_id=self.id, permissao=chave).first() is not None
+
+
+class Permissao(db.Model):
+    __tablename__ = 'permissoes'
+    id = db.Column(db.Integer, primary_key=True)
+    chave = db.Column(db.String(80), unique=True, nullable=False)
+    nome = db.Column(db.String(120), nullable=False)
+    categoria = db.Column(db.String(40), nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+
+class UsuarioPermissao(db.Model):
+    __tablename__ = 'usuario_permissoes'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    permissao = db.Column(db.String(80), nullable=False)
+    __table_args__ = (db.UniqueConstraint('usuario_id', 'permissao'),)
+
+
+# Mantém compatibilidade com a tabela existente durante a migração para Permissao.
+
+
 
 class Colaborador(db.Model):
     __tablename__ = 'colaboradores'
@@ -105,7 +131,7 @@ class Solicitacao(db.Model):
     horario_entrada = db.Column(db.String(5), nullable=True)
     horario_saida = db.Column(db.String(5), nullable=True)
     motivo = db.Column(db.Text, nullable=False)
-    comprovante = db.Column(db.String(255), nullable=True)
+    comprovante = db.Column(db.Text, nullable=True)  # JSON com nomes dos anexos
     status = db.Column(db.String(30), default='pendente')
     gestor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
     gestor_parecer = db.Column(db.Text, nullable=True)

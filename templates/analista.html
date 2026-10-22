@@ -143,8 +143,7 @@
                                 <div class="col-1"><button type="button" class="btn btn-outline-danger remover-colaborador" disabled>&times;</button></div>
                             </div>
                         </div>
-                        <div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="temMultiplos"><label class="form-check-label small" for="temMultiplos">Mais de um colaborador</label></div>
-                        <button type="button" class="btn btn-sm btn-outline-primary mt-2 d-none" id="adicionar-colaborador"><i class="bi bi-plus"></i> Adicionar colaborador</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="adicionar-colaborador"><i class="bi bi-plus"></i> Adicionar colaborador</button>
                         <div class="form-text">Informe manualmente o nome completo e a matrícula do colaborador.</div>
                     </div>
 
@@ -166,9 +165,9 @@
                     </div>
 
                     <div class="mt-3">
-                        <label class="form-label small fw-500">Comprovante <span class="text-muted">(PDF, PNG, JPG)</span></label>
-                        <input type="file" class="form-control" name="comprovante"
-                               accept=".pdf,.png,.jpg,.jpeg">
+                        <label class="form-label small fw-500">Comprovantes <span class="text-muted">(PDF, PNG, JPG, Excel)</span></label>
+                        <input type="file" class="form-control" name="comprovantes" multiple
+                               accept=".pdf,.png,.jpg,.jpeg,.xls,.xlsx">
                     </div>
 
                 </div>
