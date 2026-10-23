@@ -104,6 +104,18 @@ document.addEventListener('DOMContentLoaded', () => {
         atualizar();
     }
 
+    // ─── Destaque do item de permissão marcado (fallback sem :has()) ───
+    const permItems = document.querySelectorAll('.perm-item');
+    if (permItems.length) {
+        const marcar = input => input.closest('.perm-item')?.classList.toggle('is-checked', input.checked);
+        permItems.forEach(item => {
+            const input = item.querySelector('.form-check-input');
+            if (!input) return;
+            marcar(input);
+            input.addEventListener('change', () => marcar(input));
+        });
+    }
+
     // ─── Fechar toasts ao clicar ───
     document.querySelectorAll('.toast .btn-close').forEach(btn => {
         btn.addEventListener('click', () => {

@@ -2,7 +2,38 @@
 {% block title %}Permissões de usuário{% endblock %}
 {% block content %}
 {% if permissoes_disponiveis is defined %}
-<div class="card card-clean mb-3"><div class="card-body"><h5>Permissões individuais — {{ usuario.nome }}</h5><p class="text-muted small">O perfil continua sendo a permissão padrão. Marque acessos adicionais.</p><form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="row g-2">{% for chave, dados in permissoes_disponiveis.items() %}<div class="col-md-6 col-lg-4"><label class="form-check border rounded p-2"><input class="form-check-input" type="checkbox" name="permissoes" value="{{ chave }}" {% if chave in permissoes %}checked{% endif %}> {{ dados[0] }} <small class="text-muted">({{ dados[1] }})</small></label></div>{% endfor %}</div><button class="btn btn-primary mt-3">Salvar permissões</button><a class="btn btn-light mt-3 ms-2" href="{{ url_for('painel_admin_usuarios') }}">Cancelar</a></form></div></div>
+{% set categorias = {} %}
+{% for chave, dados in permissoes_disponiveis.items() %}{% set categorias = categorias.update({dados[1]: categorias.get(dados[1], []) + [(chave, dados)]}) or categorias %}{% endfor %}
+{% set rotulos = {'estrutura': 'Estrutura organizacional', 'usuarios': 'Usuários e permissões', 'solicitacoes': 'Solicitações e fluxos', 'relatorios': 'Relatórios e auditoria'} %}
+<div class="card card-clean mb-3">
+    <div class="card-body">
+        <h5>Permissões individuais — {{ usuario.nome }}</h5>
+        <p class="text-muted small">O perfil continua sendo a permissão padrão. Marque acessos adicionais.</p>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% for categoria, itens in categorias.items() %}
+            <div class="perm-section">
+                <div class="perm-section-title"><i class="bi bi-folder2-open"></i>{{ rotulos.get(categoria, categoria|capitalize) }}</div>
+                <div class="perm-grid">
+                    {% for chave, dados in itens %}
+                    <label class="perm-item">
+                        <input class="form-check-input" type="checkbox" name="permissoes" value="{{ chave }}" {% if chave in permissoes %}checked{% endif %}>
+                        <span class="perm-item-text">
+                            <span class="perm-item-title">{{ dados[0] }}</span>
+                            <span class="perm-item-desc">{{ dados[1] }}</span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            <div class="d-flex gap-2 mt-4">
+                <button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Salvar permissões</button>
+                <a class="btn btn-light" href="{{ url_for('painel_admin_usuarios') }}">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
 {% else %}
 <header class="page-header">
     <div><h1 class="h4">Permissões de {{ usuario.nome }}</h1><p>Configure acesso, status e vínculos organizacionais.</p></div>

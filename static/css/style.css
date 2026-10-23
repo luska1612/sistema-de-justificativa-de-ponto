@@ -200,6 +200,81 @@ a:focus-visible,
     overflow-x: hidden;
 }
 
+/* ─── Grade de permissões ─── */
+.perm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: .65rem;
+}
+
+.perm-item {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    padding: .7rem .85rem;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.perm-item:hover {
+    border-color: #cbd6e6;
+    background: #fbfcfe;
+}
+
+.perm-item:has(.form-check-input:checked),
+.perm-item.is-checked {
+    border-color: var(--color-primary);
+    background: #f4f7fc;
+}
+
+.perm-item .form-check-input {
+    flex: 0 0 auto;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin: .15rem 0 0;
+    cursor: pointer;
+}
+
+.perm-item-text {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    line-height: 1.35;
+}
+
+.perm-item-title {
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.perm-item-desc {
+    font-size: .78rem;
+    color: var(--color-text-muted);
+}
+
+.perm-section {
+    margin-bottom: 1.5rem;
+}
+
+.perm-section:last-child {
+    margin-bottom: 0;
+}
+
+.perm-section-title {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: .75rem;
+}
+
 /* ─── Badges de Status ─── */
 .badge-status {
     font-weight: 500;

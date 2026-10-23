@@ -194,7 +194,7 @@ def permissoes_usuario(usuario_id):
         empresa = db.session.get(Empresa, empresa_id) if empresa_id else None
         area = db.session.get(Area, area_id) if area_id else None
         gestor = db.session.get(Usuario, gestor_id) if gestor_id else None
-        if duplicado or (empresa_id and not empresa) or (area_id and (not area or (empresa and empresa not in area.empresas))) or (gestor and (gestor.id == usuario.id or gestor.perfil != 'gestor' or not gestor.ativo)):
+        if duplicado or (empresa_id and not empresa) or (area_id and (not area or (empresa and empresa not in area.empresas))) or (gestor and (gestor.id == usuario.id or gestor.perfil not in ('gestor', 'supervisor_administrativo') or not gestor.ativo)):
             flash('Dados ou vínculos inválidos.', 'danger')
             return redirect(url_for('permissoes_usuario', usuario_id=usuario.id))
         if usuario.perfil == 'ti' and perfil != 'ti' and Usuario.query.filter_by(perfil='ti', ativo=True).count() < 2:
@@ -260,9 +260,10 @@ def organograma():
             continue
         area = areas.setdefault(usuario.area.nome, {'gestores': {}, 'usuarios': []})
         area['usuarios'].append(usuario)
-        if usuario.gestor is None or usuario.gestor.empresa_id != usuario.empresa_id:
+        if usuario.gestor_id is None:
             sem_gestor.append(usuario)
-        else:
+        elif usuario.gestor is not None:
+            # O gestor pode pertencer a outra empresa; o vínculo por ID continua válido.
             area['gestores'].setdefault(usuario.gestor.id, usuario.gestor)
 
     estrutura = []
