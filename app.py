@@ -135,12 +135,47 @@ def permissao_requerida(chave):
     return decorator
 
 
+def permissao_avancada(chave):
+    """Verifica uma permissão avançada (aditiva).
+
+    O perfil TI já tem acesso total. Para os demais perfis, a permissão
+    precisa ter sido concedida individualmente.
+    """
+    return current_user.perfil == 'ti' or current_user.tem_permissao(chave)
+
+
+def permissoes_avancadas_do_usuario(usuario):
+    """Conjunto de permissões avançadas que um usuário possui."""
+    if usuario.perfil == 'ti':
+        return set(PERMISSOES_AVANCADAS)
+    return {item.permissao for item in
+            UsuarioPermissao.query.filter_by(usuario_id=usuario.id).all()} & set(PERMISSOES_AVANCADAS)
+
+
 def perfil_requerido(*perfis):
     """Decorator para restringir acesso por perfil."""
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
             if current_user.perfil not in perfis:
+                flash('Acesso não autorizado.', 'danger')
+                return redirect(request.referrer or url_for('dashboard'))
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def permissao_avancada_requerida(chave):
+    """Decorator para exigir uma permissão avançada além do perfil.
+
+    Combina-se com perfil_requerido: o perfil continua sendo condição
+    necessária, e a permissão avançada concede o poder extra.
+    """
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def wrapper(*args, **kwargs):
+            if not permissao_avancada(chave):
                 flash('Acesso não autorizado.', 'danger')
                 return redirect(request.referrer or url_for('dashboard'))
             return f(*args, **kwargs)
@@ -226,7 +261,8 @@ def painel_supervisor():
                  .filter(Solicitacao.supervisor_id == current_user.id)
                  .filter(Solicitacao.status != 'encaminhado_supervisor')
                  .order_by(Solicitacao.atualizado_em.desc()).limit(50).all())
-    return render_template('supervisor_administrativo.html', pendentes=pendentes, historico=historico)
+    return render_template('supervisor_administrativo.html', pendentes=pendentes, historico=historico,
+                           pode_devolver_dp=permissao_avancada('supervisor_encaminhar_dp'))
 
 
 @app.route('/configuracoes')
@@ -477,6 +513,58 @@ PERMISSOES_DISPONIVEIS = {
     'admin_dashboard': ('Ver dashboard administrativo', 'relatorios'),
 }
 
+# ──────────────────────────────────────────────
+# Permissões avançadas (aditivas)
+#
+# Semântica: o perfil concede o poder padrão. Conceder uma permissão
+# aqui apenas ADICIONA capacidade — nunca remove. Por isso o caso
+# "gestor que só recusa" não é representável por esta lista: exigiria
+# uma permissão que subtraia o poder de aprovar.
+#
+# Cada entrada: (rótulo, categoria, perfis que se beneficiam, descrição)
+# ──────────────────────────────────────────────
+PERMISSOES_AVANCADAS = {
+    'gestor_encaminhar_supervisor': (
+        'Gestor pode encaminhar ao supervisor', 'gestor', ('gestor',),
+        'Permite ao gestor enviar a solicitação ao supervisor administrativo em vez de aprová-la.'
+    ),
+    'gestor_encaminhar_area': (
+        'Gestor pode encaminhar para outro gestor', 'gestor', ('gestor',),
+        'Permite ao gestor repassar a solicitação a um gestor de nível superior da área.'
+    ),
+    'dp_encaminhar_supervisor': (
+        'DP pode encaminhar ao supervisor', 'dp', ('dp',),
+        'Permite ao DP enviar a solicitação ao supervisor administrativo antes de concluir.'
+    ),
+    'dp_recusar_sem_parecer': (
+        'DP pode recusar sem parecer detalhado', 'dp', ('dp',),
+        'Dispensa a obrigatoriedade de justificativa na recusa do DP.'
+    ),
+    'gestor_recusar_sem_parecer': (
+        'Gestor pode recusar sem parecer detalhado', 'gestor', ('gestor',),
+        'Dispensa a obrigatoriedade de justificativa na recusa do gestor.'
+    ),
+    'supervisor_encaminhar_dp': (
+        'Supervisor pode devolver ao DP', 'supervisor', ('supervisor_administrativo',),
+        'Permite ao supervisor administrativo devolver a solicitação ao DP para novo ajuste.'
+    ),
+    'gestor_aprovar_sem_comprovante': (
+        'Gestor pode aprovar sem comprovante', 'gestor', ('gestor',),
+        'Permite aprovar solicitações sem anexo de comprovante obrigatório.'
+    ),
+}
+
+# Categorias exibidas na aba de permissões avançadas.
+CATEGORIAS_PERMISSOES = {
+    'estrutura': 'Estrutura organizacional',
+    'usuarios': 'Usuários e permissões',
+    'solicitacoes': 'Solicitações e fluxos',
+    'relatorios': 'Relatórios e auditoria',
+    'gestor': 'Gestor — ações avançadas',
+    'dp': 'DP — ações avançadas',
+    'supervisor': 'Supervisor — ações avançadas',
+}
+
 
 @app.route('/admin/usuarios')
 @ti_requerido
@@ -498,22 +586,53 @@ def painel_admin_usuarios():
 @app.route('/admin/permissoes/<int:usuario_id>', methods=['GET', 'POST'])
 @ti_requerido
 def editar_permissoes(usuario_id):
+    """Tela única de permissões do usuário.
+
+    Reúne os acessos gerais (PERMISSOES_DISPONIVEIS) e as permissões
+    avançadas (PERMISSOES_AVANCADAS) em um só formulário. As avançadas só
+    aparecem quando o perfil do usuário é compatível com elas.
+    """
     usuario = db.session.get(Usuario, usuario_id)
     if not usuario:
         abort(404)
     if request.method == 'POST':
-        selecionadas = set(request.form.getlist('permissoes')) & set(PERMISSOES_DISPONIVEIS)
+        # Acessos gerais: substituem integralmente o conjunto anterior.
+        base = set(request.form.getlist('permissoes')) & set(PERMISSOES_DISPONIVEIS)
+        # Permissões avançadas: apenas as compatíveis com o perfil do usuário.
+        validas = {chave for chave, dados in PERMISSOES_AVANCADAS.items()
+                   if usuario.perfil in dados[2]}
+        avancadas = set(request.form.getlist('permissoes_avancadas')) & validas
+        # A exclusão abaixo remove todas as permissões do usuário (base e
+        # avançadas); a inserção recria exatamente o conjunto marcado.
         UsuarioPermissao.query.filter_by(usuario_id=usuario.id).delete()
-        db.session.add_all(UsuarioPermissao(usuario_id=usuario.id, permissao=item) for item in selecionadas)
+        db.session.add_all(UsuarioPermissao(usuario_id=usuario.id, permissao=item)
+                           for item in (base | avancadas))
         db.session.commit()
         flash('Permissões atualizadas.', 'success')
         return redirect(url_for('painel_admin_usuarios'))
-    permissoes = {item.permissao for item in UsuarioPermissao.query.filter_by(usuario_id=usuario.id).all()}
+
+    permissoes = {item.permissao for item in
+                   UsuarioPermissao.query.filter_by(usuario_id=usuario.id).all()}
+    # Só oferece as permissões avançadas compatíveis com o perfil do usuário.
+    disponiveis = {chave: dados for chave, dados in PERMISSOES_AVANCADAS.items()
+                    if usuario.perfil in dados[2]}
     return render_template('usuario_permissoes.html', usuario=usuario, permissoes=permissoes,
                            permissoes_disponiveis=PERMISSOES_DISPONIVEIS,
+                           permissoes_avancadas=disponiveis,
+                           categorias_permissoes=CATEGORIAS_PERMISSOES,
                            areas=Area.query.order_by(Area.nome).all(),
                            empresas=Empresa.query.filter_by(ativo=True).order_by(Empresa.nome).all(),
                            gestores=Usuario.query.filter_by(perfil='gestor', ativo=True).order_by(Usuario.nome).all())
+
+
+@app.route('/admin/permissoes-avancadas/<int:usuario_id>', methods=['GET', 'POST'])
+@ti_requerido
+def editar_permissoes_avancadas(usuario_id):
+    """Redireciona para a tela unificada de permissões.
+
+    Mantido para preservar links já existentes na interface.
+    """
+    return redirect(url_for('editar_permissoes', usuario_id=usuario_id))
 
 
 def dados_usuario_validos(form, senha_obrigatoria=True):
@@ -990,7 +1109,11 @@ def painel_gestor():
                            minhas_solicitacoes=minhas_solicitacoes,
                            colaboradores=Colaborador.query.order_by(Colaborador.nome).all(),
                            tipos=TipoJustificativa.query.order_by(TipoJustificativa.nome).all(),
-                           tipos_ocorrencia=TIPOS_OCORRENCIA)
+                           tipos_ocorrencia=TIPOS_OCORRENCIA,
+                           supervisores=Usuario.query.filter_by(
+                               perfil='supervisor_administrativo', ativo=True).order_by(Usuario.nome).all(),
+                           pode_encaminhar_supervisor=permissao_avancada('gestor_encaminhar_supervisor'),
+                           pode_recusar_sem_parecer=permissao_avancada('gestor_recusar_sem_parecer'))
 
 
 @app.route('/gestor/aprovar/<int:sol_id>', methods=['POST'])
@@ -1033,17 +1156,52 @@ def gestor_recusar(sol_id):
         return redirect(url_for('painel_gestor'))
 
     justificativa = request.form.get('justificativa', '').strip()
-    if not justificativa:
+    if not justificativa and not permissao_avancada('gestor_recusar_sem_parecer'):
         flash('Informe o motivo da recusa.', 'danger')
         return redirect(url_for('painel_gestor'))
 
     sol.status = 'recusado_gestor'
     sol.gestor_id = current_user.id
-    sol.gestor_parecer = justificativa
+    sol.gestor_parecer = justificativa or 'Recusado sem justificativa detalhada'
     sol.gestor_data = datetime.now(timezone.utc)
     db.session.commit()
 
     flash(f'Solicitação #{sol.id} recusada.', 'info')
+    return redirect(url_for('painel_gestor'))
+
+
+@app.route('/gestor/encaminhar/<int:sol_id>', methods=['POST'])
+@login_required
+@perfil_requerido('gestor')
+@permissao_avancada_requerida('gestor_encaminhar_supervisor')
+def gestor_encaminhar_supervisor(sol_id):
+    """Encaminha a solicitação ao supervisor administrativo (permissão avançada)."""
+    sol = db.session.get(Solicitacao, sol_id)
+    if not sol or sol.status != 'pendente':
+        flash('Solicitação não encontrada ou já processada.', 'warning')
+        return redirect(url_for('painel_gestor'))
+
+    colab = db.session.get(Usuario, sol.colaborador_id)
+    if not colab or colab.gestor_id != current_user.id:
+        flash('Acesso não autorizado.', 'danger')
+        return redirect(url_for('painel_gestor'))
+
+    supervisor_id = request.form.get('supervisor_id', type=int)
+    supervisor = db.session.get(Usuario, supervisor_id) if supervisor_id else None
+    if not supervisor or supervisor.perfil != 'supervisor_administrativo' or not supervisor.ativo:
+        flash('Selecione um supervisor administrativo ativo.', 'danger')
+        return redirect(url_for('painel_gestor'))
+
+    sol.status = 'encaminhado_supervisor'
+    sol.gestor_id = current_user.id
+    sol.gestor_parecer = 'Encaminhado ao supervisor administrativo'
+    sol.gestor_data = datetime.now(timezone.utc)
+    sol.supervisor_id = supervisor.id
+    sol.supervisor_parecer = 'Encaminhado pelo gestor'
+    sol.supervisor_data = datetime.now(timezone.utc)
+    db.session.commit()
+
+    flash(f'Solicitação #{sol.id} encaminhada ao supervisor administrativo.', 'success')
     return redirect(url_for('painel_gestor'))
 
 
@@ -1146,7 +1304,9 @@ def painel_dp():
                            colaboradores=Colaborador.query.order_by(Colaborador.nome).all(),
                            tipos=TipoJustificativa.query.order_by(TipoJustificativa.nome).all(),
                            tipos_ocorrencia=TipoOcorrencia.query.order_by(TipoOcorrencia.nome).all(),
-                           supervisores=supervisores)
+                           supervisores=supervisores,
+                           pode_encaminhar_supervisor=permissao_avancada('dp_encaminhar_supervisor'),
+                           pode_recusar_sem_parecer=permissao_avancada('dp_recusar_sem_parecer'))
 
 
 @app.route('/cadastros/colaborador', methods=['POST'])
@@ -1234,6 +1394,7 @@ def alternar_tipo(tipo_id):
 @app.route('/dp/encaminhar/<int:sol_id>', methods=['POST'])
 @login_required
 @perfil_requerido('dp')
+@permissao_avancada_requerida('dp_encaminhar_supervisor')
 def dp_encaminhar_supervisor(sol_id):
     sol = db.session.get(Solicitacao, sol_id)
     supervisor_id = request.form.get('supervisor_id', type=int)
@@ -1248,6 +1409,24 @@ def dp_encaminhar_supervisor(sol_id):
     db.session.commit()
     flash(f'Solicitação #{sol.id} encaminhada ao supervisor.', 'success')
     return redirect(url_for('painel_dp'))
+
+
+@app.route('/supervisor/devolver/<int:sol_id>', methods=['POST'])
+@login_required
+@perfil_requerido('supervisor_administrativo')
+@permissao_avancada_requerida('supervisor_encaminhar_dp')
+def supervisor_devolver_dp(sol_id):
+    """Devolve a solicitação ao DP para novo ajuste (permissão avançada)."""
+    sol = db.session.get(Solicitacao, sol_id)
+    if not sol or sol.status != 'encaminhado_supervisor' or sol.supervisor_id != current_user.id:
+        flash('Solicitação não encontrada ou já processada.', 'warning')
+        return redirect(url_for('painel_supervisor'))
+    sol.status = 'aprovado_gestor'
+    sol.supervisor_parecer = request.form.get('parecer', '').strip() or 'Devolvido ao DP para ajuste'
+    sol.supervisor_data = datetime.now(timezone.utc)
+    db.session.commit()
+    flash(f'Solicitação #{sol.id} devolvida ao DP.', 'success')
+    return redirect(url_for('painel_supervisor'))
 
 
 @app.route('/supervisor/aprovar/<int:sol_id>', methods=['POST'])
@@ -1312,13 +1491,13 @@ def dp_recusar(sol_id):
         return redirect(url_for('painel_dp'))
 
     justificativa = request.form.get('justificativa', '').strip()
-    if not justificativa:
+    if not justificativa and not permissao_avancada('dp_recusar_sem_parecer'):
         flash('Informe o motivo da recusa.', 'danger')
         return redirect(url_for('painel_dp'))
 
     sol.status = 'recusado_dp'
     sol.dp_id = current_user.id
-    sol.dp_parecer = justificativa
+    sol.dp_parecer = justificativa or 'Recusado sem justificativa detalhada'
     sol.dp_data = datetime.now(timezone.utc)
     db.session.commit()
 

@@ -98,7 +98,7 @@
                                 </button>
 
                                 {% if s.status in ['aprovado_gestor', 'aprovado_supervisor'] %}
-                                {% if s.status == 'aprovado_gestor' %}<button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#dpEncaminhar{{ s.id }}" title="Encaminhar ao supervisor"><i class="bi bi-send"></i></button>{% endif %}
+                                {% if s.status == 'aprovado_gestor' and pode_encaminhar_supervisor %}<button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#dpEncaminhar{{ s.id }}" title="Encaminhar ao supervisor"><i class="bi bi-send"></i></button>{% endif %}
                                 <!-- Aprovar -->
                                 <form method="POST" action="{{ url_for('dp_aprovar', sol_id=s.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-success" title="Finalizar Ajuste">
@@ -183,7 +183,8 @@
 </div>
 
 {% if s.status in ['aprovado_gestor', 'aprovado_supervisor'] %}
-{% if s.status == 'aprovado_gestor' %}<div class="modal fade" id="dpEncaminhar{{ s.id }}" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><form method="POST" action="{{ url_for('dp_encaminhar_supervisor', sol_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="modal-header"><h6 class="modal-title">Encaminhar #{{ s.id }}</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><label class="form-label">Supervisor administrativo</label><select class="form-select" name="supervisor_id" required><option value="">Selecione...</option>{% for supervisor in supervisores %}<option value="{{ supervisor.id }}">{{ supervisor.nome }}</option>{% endfor %}</select></div><div class="modal-footer"><button class="btn btn-primary btn-sm">Encaminhar</button></div></form></div></div></div>
+{% if s.status == 'aprovado_gestor' and pode_encaminhar_supervisor %}<div class="modal fade" id="dpEncaminhar{{ s.id }}" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><form method="POST" action="{{ url_for('dp_encaminhar_supervisor', sol_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="modal-header"><h6 class="modal-title">Encaminhar #{{ s.id }}</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><label class="form-label">Supervisor administrativo</label><select class="form-select" name="supervisor_id" required><option value="">Selecione...</option>{% for supervisor in supervisores %}<option value="{{ supervisor.id }}">{{ supervisor.nome }}</option>{% endfor %}</select></div><div class="modal-footer"><button class="btn btn-primary btn-sm">Encaminhar</button></div></form></div></div></div>
+{% endif %}
 <!-- Recusa do DP -->
 <div class="modal fade" id="dpRecusar{{ s.id }}" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -194,9 +195,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <label class="form-label small fw-500">Motivo da recusa <span class="text-danger">*</span></label>
+                    <label class="form-label small fw-500">Motivo da recusa {% if not pode_recusar_sem_parecer %}<span class="text-danger">*</span>{% endif %}</label>
                     <textarea class="form-control" name="justificativa" rows="3"
-                              placeholder="Explique o motivo..." required></textarea>
+                              placeholder="Explique o motivo..." {% if not pode_recusar_sem_parecer %}required{% endif %}></textarea>
+                    {% if pode_recusar_sem_parecer %}
+                    <div class="form-text">Sua permissão avançada permite recusar sem justificativa detalhada.</div>
+                    {% endif %}
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -206,7 +210,6 @@
         </div>
     </div>
 </div>
-{% endif %}
 {% endif %}
 {% endfor %}
 {% endblock %}

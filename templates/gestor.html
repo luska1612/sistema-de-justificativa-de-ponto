@@ -69,6 +69,13 @@
                             data-bs-toggle="modal" data-bs-target="#recusarModal{{ s.id }}">
                         <i class="bi bi-x-lg me-1"></i>Recusar
                     </button>
+                    {% if pode_encaminhar_supervisor %}
+                    <button type="button" class="btn btn-outline-primary btn-sm flex-fill"
+                            data-bs-toggle="modal" data-bs-target="#encaminharModal{{ s.id }}"
+                            title="Encaminhar ao supervisor administrativo">
+                        <i class="bi bi-send me-1"></i>Encaminhar
+                    </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -85,9 +92,12 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <label class="form-label small fw-500">Motivo da recusa <span class="text-danger">*</span></label>
+                        <label class="form-label small fw-500">Motivo da recusa {% if not pode_recusar_sem_parecer %}<span class="text-danger">*</span>{% endif %}</label>
                         <textarea class="form-control" name="justificativa" rows="3"
-                                  placeholder="Explique o motivo..." required></textarea>
+                                  placeholder="Explique o motivo..." {% if not pode_recusar_sem_parecer %}required{% endif %}></textarea>
+                        {% if pode_recusar_sem_parecer %}
+                        <div class="form-text">Sua permissão avançada permite recusar sem justificativa detalhada.</div>
+                        {% endif %}
                     </div>
                     <div class="modal-footer border-0 pt-0">
                         <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -97,6 +107,37 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal de Encaminhamento ao Supervisor -->
+    {% if pode_encaminhar_supervisor %}
+    <div class="modal fade" id="encaminharModal{{ s.id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow">
+                <form method="POST" action="{{ url_for('gestor_encaminhar_supervisor', sol_id=s.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="modal-header border-0 pb-0">
+                        <h6 class="modal-title fw-600">Encaminhar #{{ s.id }}</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label small fw-500">Supervisor administrativo <span class="text-danger">*</span></label>
+                        <select class="form-select" name="supervisor_id" required>
+                            <option value="">Selecione...</option>
+                            {% for supervisor in supervisores %}
+                            <option value="{{ supervisor.id }}">{{ supervisor.nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">A solicitação sairá da sua fila e seguirá para o supervisor escolhido.</div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary btn-sm px-3">Encaminhar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     {% endfor %}
 </div>
 {% else %}

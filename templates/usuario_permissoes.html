@@ -2,38 +2,103 @@
 {% block title %}Permissões de usuário{% endblock %}
 {% block content %}
 {% if permissoes_disponiveis is defined %}
-{% set categorias = {} %}
-{% for chave, dados in permissoes_disponiveis.items() %}{% set categorias = categorias.update({dados[1]: categorias.get(dados[1], []) + [(chave, dados)]}) or categorias %}{% endfor %}
-{% set rotulos = {'estrutura': 'Estrutura organizacional', 'usuarios': 'Usuários e permissões', 'solicitacoes': 'Solicitações e fluxos', 'relatorios': 'Relatórios e auditoria'} %}
-<div class="card card-clean mb-3">
-    <div class="card-body">
-        <h5>Permissões individuais — {{ usuario.nome }}</h5>
-        <p class="text-muted small">O perfil continua sendo a permissão padrão. Marque acessos adicionais.</p>
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            {% for categoria, itens in categorias.items() %}
+{# ─── Tela unificada de permissões ─── #}
+{% set cat_base = {} %}
+{% for chave, dados in permissoes_disponiveis.items() %}{% set cat_base = cat_base.update({dados[1]: cat_base.get(dados[1], []) + [(chave, dados)]}) or cat_base %}{% endfor %}
+{% set cat_avanc = {} %}
+{% for chave, dados in permissoes_avancadas.items() %}{% set cat_avanc = cat_avanc.update({dados[1]: cat_avanc.get(dados[1], []) + [(chave, dados)]}) or cat_avanc %}{% endfor %}
+
+<header class="page-header">
+    <div>
+        <h1 class="h4">Permissões de {{ usuario.nome }}</h1>
+        <p>Conceda acessos adicionais ao perfil <b>{{ usuario.perfil|capitalize }}</b>. As permissões são <b>aditivas</b>: apenas somam capacidades ao que o perfil já permite.</p>
+    </div>
+    <a class="btn btn-light" href="{{ url_for('painel_admin_usuarios') }}"><i class="bi bi-arrow-left me-1"></i>Voltar</a>
+</header>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- ─── Acessos gerais ─── -->
+    <div class="card card-clean mb-3">
+        <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h5 class="mb-0">Acessos gerais</h5>
+                <span class="badge bg-secondary-subtle text-secondary">{{ permissoes_disponiveis|length }}</span>
+            </div>
+            <p class="text-muted small mb-4">Permissões de acesso a áreas do sistema, independentes do perfil.</p>
+
+            {% for categoria, itens in cat_base.items() %}
             <div class="perm-section">
-                <div class="perm-section-title"><i class="bi bi-folder2-open"></i>{{ rotulos.get(categoria, categoria|capitalize) }}</div>
+                <div class="perm-section-title">
+                    <i class="bi bi-folder2-open"></i>{{ categorias_permissoes.get(categoria, categoria|capitalize) }}
+                </div>
                 <div class="perm-grid">
                     {% for chave, dados in itens %}
                     <label class="perm-item">
                         <input class="form-check-input" type="checkbox" name="permissoes" value="{{ chave }}" {% if chave in permissoes %}checked{% endif %}>
                         <span class="perm-item-text">
                             <span class="perm-item-title">{{ dados[0] }}</span>
-                            <span class="perm-item-desc">{{ dados[1] }}</span>
+                            <span class="perm-item-desc">{{ categorias_permissoes.get(dados[1], dados[1]) }}</span>
                         </span>
                     </label>
                     {% endfor %}
                 </div>
             </div>
             {% endfor %}
-            <div class="d-flex gap-2 mt-4">
-                <button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Salvar permissões</button>
-                <a class="btn btn-light" href="{{ url_for('painel_admin_usuarios') }}">Cancelar</a>
-            </div>
-        </form>
+        </div>
     </div>
-</div>
+
+    <!-- ─── Ações avançadas ─── -->
+    {% if permissoes_avancadas %}
+    <div class="card card-clean mb-3">
+        <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h5 class="mb-0">Ações avançadas</h5>
+                <span class="badge bg-primary-subtle text-primary">{{ permissoes_avancadas|length }}</span>
+            </div>
+            <p class="text-muted small mb-4">Poderes extras disponíveis para o perfil {{ usuario.perfil|capitalize }}. Somente as ações compatíveis com o perfil são exibidas.</p>
+
+            {% for categoria, itens in cat_avanc.items() %}
+            <div class="perm-section">
+                <div class="perm-section-title">
+                    <i class="bi bi-folder2-open"></i>{{ categorias_permissoes.get(categoria, categoria|capitalize) }}
+                </div>
+                <div class="perm-grid">
+                    {% for chave, dados in itens %}
+                    <label class="perm-item">
+                        <input class="form-check-input" type="checkbox" name="permissoes_avancadas" value="{{ chave }}" {% if chave in permissoes %}checked{% endif %}>
+                        <span class="perm-item-text">
+                            <span class="perm-item-title">{{ dados[0] }}</span>
+                            <span class="perm-item-desc">{{ dados[3] }}</span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card card-clean mb-3">
+        <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h5 class="mb-0">Ações avançadas</h5>
+                <span class="badge bg-secondary-subtle text-secondary">0</span>
+            </div>
+            <div class="alert alert-light border small mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                Nenhuma ação avançada se aplica ao perfil <b>{{ usuario.perfil|capitalize }}</b>. As ações avançadas estão disponíveis para Gestor, DP e Supervisor administrativo.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Salvar permissões</button>
+        <a class="btn btn-light" href="{{ url_for('painel_admin_usuarios') }}">Cancelar</a>
+    </div>
+</form>
 {% else %}
 <header class="page-header">
     <div><h1 class="h4">Permissões de {{ usuario.nome }}</h1><p>Configure acesso, status e vínculos organizacionais.</p></div>

@@ -50,6 +50,7 @@
                 <td><span class="badge bg-{{ 'success' if usuario.ativo else 'secondary' }}-subtle text-{{ 'success' if usuario.ativo else 'secondary' }}">{{ 'Ativo' if usuario.ativo else 'Inativo' }}</span></td>
                 <td class="text-end pe-3">
                     <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('permissoes_usuario', usuario_id=usuario.id) }}" title="Editar usuário"><i class="bi bi-pencil"></i></a>
+                    {% if usuario.perfil in ['gestor', 'dp', 'supervisor_administrativo'] %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('editar_permissoes', usuario_id=usuario.id) }}" title="Permissões avançadas"><i class="bi bi-shield-lock"></i></a>{% endif %}
                     {% if usuario.id != current_user.id %}<form class="d-inline" method="POST" action="{{ url_for('alternar_usuario', usuario_id=usuario.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-warning rounded">{{ 'Desativar' if usuario.ativo else 'Ativar' }}</button></form><form class="d-inline ms-1" method="POST" action="{{ url_for('excluir_usuario', usuario_id=usuario.id) }}" onsubmit="return confirm('Excluir este usuário permanentemente? Esta ação não pode ser desfeita.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger rounded">Excluir</button></form>{% endif %}
                 </td>
             </tr>
